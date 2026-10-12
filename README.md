@@ -4,7 +4,7 @@
 
 **Team The Misfits** | Applied Machine Learning Programme & Hackathon
 **Organised by:** Romeo & Juliet Ltd. × IIT Madras
-**Research Round:** Round 1 | October 2026
+**Research Round:** | October 2026
 
 ---
 
