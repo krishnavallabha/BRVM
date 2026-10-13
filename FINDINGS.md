@@ -91,3 +91,22 @@ z = (realised − expected) / sqrt(Σ p(1−p)); CI = 95% CI of the per-episode 
 
 - New `policy.py` (safety shell + `misfits/` greedy stubs), official evaluator, seeds 101–103 × 6: **0.3889**, coverage 0.3717, ask cost 206.7, all 18 episodes valid, and **every episode's `action_sha256` is identical to the kit greedy run** (`results/day1_policy_check.json` vs `results/greedy.json`).
 - `analysis/compare.py --a greedy --b greedy`: paired difference exactly 0 in every family (deterministic). Mean call time about 0.08 s, max about 0.3 s in-process.
+
+## 8. Item 2: Maximum-pairs matching (Siddharth Day 1, 14 Oct)
+
+`python analysis/compare.py --a greedy --b maxcard --seeds 201-230` → `results/compare_greedy_vs_maxcard_201-230.json`.
+Global maximum-weight matching on the feasible graph using Edmonds' blossom algorithm (`networkx.max_weight_matching(G, maxcardinality=True)`) with unit edge weights ($w=1$).
+
+| Family | expA (greedy) | expB (maxcard) | Diff exp [95% CI] | realA | realB | intrA | intrB | covA | covB | askA | askB |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| development | 0.4506 | 0.4357 | −0.0149 [−0.0257, −0.0041] | 0.3833 | 0.3167 | 86.0 | 85.2 | 0.364 | 0.364 | 188.9 | 188.9 |
+| sparse | 0.1149 | 0.1139 | −0.0009 [−0.0028, +0.0010] | 0.1000 | 0.1000 | 21.9 | 21.9 | 0.171 | 0.171 | 188.5 | 188.5 |
+| cold_start | 0.3531 | 0.3606 | +0.0074 [−0.0068, +0.0217] | 0.2500 | 0.2833 | 72.0 | 73.0 | 0.314 | 0.313 | 231.7 | 231.7 |
+| delayed | 0.4144 | 0.4052 | −0.0092 [−0.0200, +0.0015] | 0.3500 | 0.4500 | 81.5 | 81.6 | 0.362 | 0.363 | 188.9 | 188.9 |
+| shift | 0.3913 | 0.3885 | −0.0027 [−0.0162, +0.0107] | 0.4333 | 0.3167 | 86.8 | 86.6 | 0.364 | 0.366 | 188.9 | 188.9 |
+| drift | 0.4222 | 0.4114 | −0.0108 [−0.0204, −0.0011] | 0.3500 | 0.3167 | 86.3 | 85.8 | 0.364 | 0.365 | 188.9 | 188.9 |
+| **OVERALL** | **0.3577** | **0.3526** | **−0.0052 [−0.0110, +0.0006]** | **0.3111** | **0.2972** | **72.4** | **72.3** | **0.323** | **0.324** | **196.0** | **196.0** |
+
+- **Runtime & Reliability**: 0 invalid episodes out of 360. Per-call inference time inside Python is fast: mean call time is 0.0605 s (max 0.228 s), well below the 3.0 s fallback threshold.
+- **Verdict & Recommendation**: Do not replace greedy with standalone unit-weight `maxcard` yet. Because the daily feasible graph is sparse and mostly tree-like, maximum cardinality alone yields virtually the same number of introductions as greedy (72.3 vs 72.4) and identical coverage (0.324 vs 0.323). However, greedy sorts edges by observed soft-field matches, whereas unit-weight `maxcard` treats all edges as identical ($w = 1$), occasionally selecting lower-compatibility pairs. This precisely validates the Day 2 design: keep the global maximum-cardinality matching engine, but layer soft-compatibility quality weights ($weight = 1000 + q(i, j)$) to break ties in favor of high-quality introductions.
+
