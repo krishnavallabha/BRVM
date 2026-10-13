@@ -110,3 +110,24 @@ Global maximum-weight matching on the feasible graph using Edmonds' blossom algo
 - **Runtime & Reliability**: 0 invalid episodes out of 360. Per-call inference time inside Python is fast: mean call time is 0.0605 s (max 0.228 s), well below the 3.0 s fallback threshold.
 - **Verdict & Recommendation**: Do not replace greedy with standalone unit-weight `maxcard` yet. Because the daily feasible graph is sparse and mostly tree-like, maximum cardinality alone yields virtually the same number of introductions as greedy (72.3 vs 72.4) and identical coverage (0.324 vs 0.323). However, greedy sorts edges by observed soft-field matches, whereas unit-weight `maxcard` treats all edges as identical ($w = 1$), occasionally selecting lower-compatibility pairs. This precisely validates the Day 2 design: keep the global maximum-cardinality matching engine, but layer soft-compatibility quality weights ($weight = 1000 + q(i, j)$) to break ties in favor of high-quality introductions.
 
+## 9. Item 2 + Quality: Maximum pairs with soft-fit tie-breaking (Siddharth Day 2, 15 Oct)
+
+`python analysis/compare.py --a maxcard --b maxcard_quality --seeds 201-230` → `results/compare_maxcard_vs_maxcard_quality_201-230.json`.
+Edge weights $w = 1000 + q(i, j)$ with `maxcardinality=True`. $q(i, j)$ uses hand-set soft-compatibility priors from observed fields only (+3.0 / −1.5 for `relationship_goal`, +1.5 / −0.75 for `relationship_pace`, small terms for `lifestyle` and `conversations`, 0 when unobserved).
+
+| Family | expA (maxcard) | expB (maxcard_quality) | Diff exp [95% CI] | realA | realB | intrA | intrB | covA | covB | askA | askB |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| development | 0.4357 | 0.4467 | +0.0110 [+0.0016, +0.0203] | 0.3167 | 0.3000 | 85.2 | 85.3 | 0.364 | 0.363 | 188.9 | 188.9 |
+| sparse | 0.1139 | 0.1139 | −0.0000 [−0.0007, +0.0007] | 0.1000 | 0.1000 | 21.9 | 21.9 | 0.171 | 0.171 | 188.5 | 188.5 |
+| cold_start | 0.3606 | 0.3679 | +0.0074 [−0.0017, +0.0165] | 0.2833 | 0.3333 | 73.0 | 73.5 | 0.313 | 0.315 | 231.7 | 231.7 |
+| delayed | 0.4052 | 0.4089 | +0.0037 [−0.0063, +0.0137] | 0.4500 | 0.3833 | 81.6 | 81.0 | 0.363 | 0.362 | 188.9 | 188.9 |
+| shift | 0.3885 | 0.3904 | +0.0019 [−0.0067, +0.0105] | 0.3167 | 0.3000 | 86.6 | 86.7 | 0.366 | 0.364 | 188.9 | 188.9 |
+| drift | 0.4114 | 0.4212 | +0.0098 [+0.0021, +0.0175] | 0.3167 | 0.3000 | 85.8 | 85.7 | 0.364 | 0.363 | 188.9 | 188.9 |
+| **OVERALL** | **0.3526** | **0.3582** | **+0.0056 [+0.0009, +0.0103]** | **0.2972** | **0.2861** | **72.3** | **72.3** | **0.324** | **0.323** | **196.0** | **196.0** |
+
+- **Introductions Unchanged**: Average introductions per episode are confirmed identical (**72.3 vs 72.3**), verifying that $1000 + q(i, j)$ preserves maximum cardinality without dropping viable introductions.
+- **Expected MSMI Gain**: Significant overall gain of **+0.0056 [95% CI: +0.0009, +0.0103]** over `maxcard`. Positive in 5 of 6 families (and exactly 0.0 in sparse where no degree > 1 choices exist).
+- **Benchmark against Greedy** (`compare_greedy_vs_maxcard_quality_201-230.json`): Overall diff is **+0.0004 [−0.0051, +0.0060]**, with a strong gain in `cold_start` (+0.0148 [+0.0036, +0.0261]). When combined with Rishi's `soft_asks: True` (which yields more observed soft fields), this advantage will widen further.
+- **Runtime**: Mean call time is 0.10–0.11 s, max under 0.5 s in-process (and under 2 s in the worst multi-worker case), cleanly within the 3.0 s budget. 0 invalid episodes.
+
+

@@ -22,6 +22,7 @@ PRESETS = {
     'no_asks': {'ask_order': 'none', 'soft_asks': False, 'match': 'greedy'},
     'random': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'random'},
     'maxcard': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'maxcard'},
+    'maxcard_quality': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'maxcard_quality'},
 }
 DEFAULT_CONFIG = PRESETS['greedy']
 
