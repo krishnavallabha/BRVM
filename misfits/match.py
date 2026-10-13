@@ -1,8 +1,12 @@
-"""Match phase (owner: Siddharth)."""
 import itertools
 import random
 import time
-import networkx as nx
+
+try:
+    import networkx as nx
+except ImportError:
+    nx = None
+
 from kit import baseline_match, eligibility
 
 # Hand-set soft-compatibility prior weights (Day 2)
@@ -61,6 +65,8 @@ def choose(state, memory, config):
         return pairs, memory
 
     if how in ('maxcard', 'maxcard_quality'):
+        if nx is None:
+            return baseline_match(state), memory
         t0 = time.perf_counter()
         try:
             candidates = sorted(
