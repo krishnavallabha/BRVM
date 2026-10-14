@@ -21,6 +21,8 @@ PRESETS = {
     'greedy': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'greedy'},
     'no_asks': {'ask_order': 'none', 'soft_asks': False, 'match': 'greedy'},
     'random': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'random'},
+    'maxcard': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'maxcard'},
+    'maxcard_quality': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'maxcard_quality'},
 }
 DEFAULT_CONFIG = PRESETS['greedy']
 
@@ -137,16 +139,22 @@ def decide(request, mode='greedy', variant=None):
         if not memory_ok(new_memory):
             log('returned memory invalid or too large; keeping previous memory')
             new_memory = memory
-        return {key: out, 'memory': fresh_memory(new_memory)}
+        out_mem = fresh_memory(new_memory)
+        if not out_mem.get('asks') and not out_mem.get('match'):
+            out_mem = {}
+        return {key: out, 'memory': out_mem}
     except Exception as e:  # noqa: BLE001 - any failure -> safe fallback
         log('fallback in %s phase: %r' % (phase, e))
+        fb_mem = fresh_memory(memory)
+        if not fb_mem.get('asks') and not fb_mem.get('match'):
+            fb_mem = {}
         if phase == 'ask':
-            return {'asks': [], 'memory': memory}
+            return {'asks': [], 'memory': fb_mem}
         try:
-            return {'pairs': valid_pairs(state, baseline_match(state)), 'memory': memory}
+            return {'pairs': valid_pairs(state, baseline_match(state)), 'memory': fb_mem}
         except Exception as e2:  # noqa: BLE001
             log('greedy fallback failed too: %r' % (e2,))
-            return {'pairs': [], 'memory': memory}
+            return {'pairs': [], 'memory': fb_mem}
 
 
 if __name__ == '__main__':
