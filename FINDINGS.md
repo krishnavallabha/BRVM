@@ -275,4 +275,16 @@ Simple reservation `reserve_k`: drop an edge if both ends have ≥ k other feasi
 
 - `DEFAULT_CONFIG = full`; `python -m unittest` 34/34 pass.
 - Results: `confirmation_301_340.json`, `final*.json`, `expected_101_103.json`, `q1_dense_201_260.json`, `q1_standard_201_230.json`, `q2_changing.json`, `q3b_waiting.json`. Match-phase write-up: `report/match.md`.
-- **Second pin:** waiting on Rishi's container check of this build (`docker build`, `evaluate.py --image ... --seeds 101 --variants all`, `networkx` present in the image).
+- **First pin:** `ae57f84` (see §13). **Second pin:** waiting on a container check of this Day 3 build (`docker build`, `evaluate.py --image ... --seeds 101 --variants all`, `networkx` present in the image).
+
+## 13. Container check and first pinned build (15 Oct)
+
+Rishi's container check (`results/container_check.json`, commit `ae57f84`): `docker build -t sequential-policy:misfits .`, then `python evaluate.py --image sequential-policy:misfits --seeds 101 --variants all`.
+
+- `mode: container`, **6/6 episodes valid** (seed 101, all families), eligible.
+- Every `action_sha256` is identical to kit greedy, as expected: this build's `DEFAULT_CONFIG` was still `greedy`.
+- **Time per call inside the container: median 1.93 s, max 2.13 s** (`inference_seconds` / 120 per episode). Each call is a fresh `docker run`, so most of this is container start-up; the policy itself takes about 0.1–0.3 s.
+
+**First pinned build: `ae57f84963d9e70ebcfef35a50a3488478a0a32c`.** The code is identical to `43f9e41` (Day 2: shell, tests, greedy default) plus the container result.
+
+**Second pin (Day 3 build, `DEFAULT_CONFIG = full`): needs a new container check.** This is the first build whose container actually imports `networkx` and runs the max-pairs matcher. Expect roughly 2.5–3 s per call (container start-up plus about 1 s of policy and import). That is within the 10 s limit, but it should be measured.
