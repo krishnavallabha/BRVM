@@ -6,7 +6,7 @@
 **Organised by:** Romeo & Juliet Ltd. × IIT Madras
 **Research Round:** | October 2026
 
----
+
 
 ## Overview
 
