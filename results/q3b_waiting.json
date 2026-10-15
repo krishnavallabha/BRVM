@@ -1,0 +1,179 @@
+{
+ "source": "results/confirmation_301_340.json",
+ "presets": {
+  "greedy": {
+   "episodes": 240,
+   "all": {
+    "members": 48000,
+    "served": 16707,
+    "wait_median": 4,
+    "wait_p90": 16,
+    "never_served": 31293,
+    "never_served_unblocked": 14776,
+    "unblocked": 31483,
+    "never_served_unblocked_share": 0.46933265571895944
+   },
+   "by_true_response_rate": {
+    "low (<0.69)": {
+     "members": 15516,
+     "served": 5218,
+     "wait_median": 4.0,
+     "wait_p90": 16,
+     "never_served": 10298,
+     "never_served_unblocked": 4934,
+     "unblocked": 10152,
+     "never_served_unblocked_share": 0.4860126083530339
+    },
+    "mid (0.69-0.84)": {
+     "members": 16921,
+     "served": 6077,
+     "wait_median": 4,
+     "wait_p90": 16,
+     "never_served": 10844,
+     "never_served_unblocked": 4974,
+     "unblocked": 11051,
+     "never_served_unblocked_share": 0.45009501402588004
+    },
+    "high (>=0.84)": {
+     "members": 15563,
+     "served": 5412,
+     "wait_median": 5.0,
+     "wait_p90": 16,
+     "never_served": 10151,
+     "never_served_unblocked": 4868,
+     "unblocked": 10280,
+     "never_served_unblocked_share": 0.4735408560311284
+    }
+   },
+   "by_observed_no_response": {
+    "no feedback yet": {
+     "members": 31293,
+     "served": 0,
+     "wait_median": null,
+     "wait_p90": null,
+     "never_served": 31293,
+     "never_served_unblocked": 14776,
+     "unblocked": 14776,
+     "never_served_unblocked_share": 1.0
+    },
+    "obs no-resp 0": {
+     "members": 10277,
+     "served": 10277,
+     "wait_median": 5,
+     "wait_p90": 17,
+     "never_served": 0,
+     "never_served_unblocked": 0,
+     "unblocked": 10277,
+     "never_served_unblocked_share": 0.0
+    },
+    "obs no-resp <=50%": {
+     "members": 3800,
+     "served": 3800,
+     "wait_median": 2.0,
+     "wait_p90": 12,
+     "never_served": 0,
+     "never_served_unblocked": 0,
+     "unblocked": 3800,
+     "never_served_unblocked_share": 0.0
+    },
+    "obs no-resp >50%": {
+     "members": 2630,
+     "served": 2630,
+     "wait_median": 5.0,
+     "wait_p90": 19,
+     "never_served": 0,
+     "never_served_unblocked": 0,
+     "unblocked": 2630,
+     "never_served_unblocked_share": 0.0
+    }
+   }
+  },
+  "full": {
+   "episodes": 240,
+   "all": {
+    "members": 48000,
+    "served": 16766,
+    "wait_median": 3.0,
+    "wait_p90": 16,
+    "never_served": 31234,
+    "never_served_unblocked": 14717,
+    "unblocked": 31483,
+    "never_served_unblocked_share": 0.4674586284661563
+   },
+   "by_true_response_rate": {
+    "low (<0.69)": {
+     "members": 15516,
+     "served": 5243,
+     "wait_median": 3,
+     "wait_p90": 16,
+     "never_served": 10273,
+     "never_served_unblocked": 4909,
+     "unblocked": 10152,
+     "never_served_unblocked_share": 0.48355003940110325
+    },
+    "mid (0.69-0.84)": {
+     "members": 16921,
+     "served": 6084,
+     "wait_median": 3.0,
+     "wait_p90": 17,
+     "never_served": 10837,
+     "never_served_unblocked": 4967,
+     "unblocked": 11051,
+     "never_served_unblocked_share": 0.44946158718667995
+    },
+    "high (>=0.84)": {
+     "members": 15563,
+     "served": 5439,
+     "wait_median": 3,
+     "wait_p90": 16,
+     "never_served": 10124,
+     "never_served_unblocked": 4841,
+     "unblocked": 10280,
+     "never_served_unblocked_share": 0.4709143968871595
+    }
+   },
+   "by_observed_no_response": {
+    "no feedback yet": {
+     "members": 31234,
+     "served": 0,
+     "wait_median": null,
+     "wait_p90": null,
+     "never_served": 31234,
+     "never_served_unblocked": 14717,
+     "unblocked": 14717,
+     "never_served_unblocked_share": 1.0
+    },
+    "obs no-resp 0": {
+     "members": 10450,
+     "served": 10450,
+     "wait_median": 4.0,
+     "wait_p90": 17,
+     "never_served": 0,
+     "never_served_unblocked": 0,
+     "unblocked": 10450,
+     "never_served_unblocked_share": 0.0
+    },
+    "obs no-resp <=50%": {
+     "members": 3797,
+     "served": 3797,
+     "wait_median": 1,
+     "wait_p90": 11,
+     "never_served": 0,
+     "never_served_unblocked": 0,
+     "unblocked": 3797,
+     "never_served_unblocked_share": 0.0
+    },
+    "obs no-resp >50%": {
+     "members": 2519,
+     "served": 2519,
+     "wait_median": 4,
+     "wait_p90": 18,
+     "never_served": 0,
+     "never_served_unblocked": 0,
+     "unblocked": 2519,
+     "never_served_unblocked_share": 0.0
+    }
+   }
+  }
+ }
+}

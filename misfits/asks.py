@@ -39,15 +39,24 @@ def _count_missing_soft(m):
     return sum(1 for k in SOFT if m['field_status'][k] == 'not_asked')
 
 
-def _partner_counts(members, past, ok):
-    """member_id -> number of other available members m with ok(eligibility status)."""
-    counts = {m['member_id']: 0 for m in members}
+def _partner_counts(members, past):
+    """-> (likely, feasible): per member, the number of other available members (never introduced)
+    whose pair is not 'infeasible' / is 'feasible'. One eligibility pass serves both."""
+    likely = {m['member_id']: 0 for m in members}
+    feasible = dict(likely)
     for i, a in enumerate(members):
         for b in members[i + 1:]:
-            if tuple(sorted((a['member_id'], b['member_id']))) not in past and ok(eligibility(a, b)['status']):
-                counts[a['member_id']] += 1
-                counts[b['member_id']] += 1
-    return counts
+            ia, ib = a['member_id'], b['member_id']
+            if tuple(sorted((ia, ib))) in past:
+                continue
+            status = eligibility(a, b)['status']
+            if status != 'infeasible':
+                likely[ia] += 1
+                likely[ib] += 1
+            if status == 'feasible':
+                feasible[ia] += 1
+                feasible[ib] += 1
+    return likely, feasible
 
 
 def choose(state, memory, config):
@@ -59,6 +68,13 @@ def choose(state, memory, config):
     members = [m for m in state['members'] if m['available']]
     budget = state['ask_budget_remaining']
     past = {tuple(sorted((i['user_a'], i['user_b']))) for i in state['introductions']}
+    counts = []  # lazy (likely, feasible) partner counts, computed at most once per call
+
+    def partner_counts():
+        if not counts:
+            counts.extend(_partner_counts(members, past))
+        return counts
+
     hard_candidates = [
         m for m in members
         if _count_missing_hard(m) > 0
@@ -69,7 +85,7 @@ def choose(state, memory, config):
     if order == 'partners':
         # Likely partner count: unknown fields don't block (anything but 'infeasible'),
         # plus a bonus for members who arrived in the last 3 days.
-        likely = _partner_counts(members, past, lambda st: st != 'infeasible')
+        likely = partner_counts()[0]
         bonus = config.get('arrival_bonus', ARRIVAL_BONUS)
         score = {m['member_id']: likely[m['member_id']] + (bonus if state['day'] - m['arrived_day'] <= 2 else 0)
                  for m in hard_candidates}
@@ -97,7 +113,7 @@ def choose(state, memory, config):
     else:
         # Agreed design: a soft answer can only change a choice when there is more than one
         # option, so ask only members with >= 2 feasible available partners, most partners first.
-        feasible = _partner_counts(members, past, lambda st: st == 'feasible')
+        feasible = partner_counts()[1]
         candidates = sorted((m for m in members if feasible[m['member_id']] >= 2),
                             key=lambda m: (-feasible[m['member_id']], m['member_id']))
         fields = SOFT_FIELDS

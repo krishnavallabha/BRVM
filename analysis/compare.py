@@ -10,10 +10,10 @@ from multiprocessing import Pool
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from kit import Simulator, generate  # noqa: E402
+from kit import HARD  # noqa: E402
 from evaluate import VARIANTS  # noqa: E402
-from expected import p_msmi  # noqa: E402
 import policy  # noqa: E402
+import worlds  # noqa: E402
 
 Z95 = 1.96  # ponytail: normal approx; for n=30 the t quantile (2.045) widens the CI ~4%
 
@@ -28,9 +28,13 @@ def register(preset):
 
 
 def episode(args):
-    role, preset, seed, family = args
+    """args = (role, preset, seed, world[, detail]). world: a family or a worlds.py variant.
+    detail=True adds per-member rows for waiting/fairness analysis (q3b.py)."""
+    role, preset, seed, family = args[:4]
+    detail = len(args) > 4 and args[4]
     register(preset)
-    sim = Simulator(generate(seed, 200, 'evaluation', family))
+    world, sim_class, expected = worlds.make(family, seed)
+    sim = sim_class(world)
     memory, times, error = None, [], None
     try:
         for _ in range(60):
@@ -47,20 +51,36 @@ def episode(args):
     except ValueError as e:  # simulator rejected an action -> invalid episode
         error = str(e)
     arrived = {i for i, m in sim.members.items() if m['arrived_day'] <= 59}
-    ps = [p_msmi(sim.members[i['user_a']], sim.members[i['user_b']], family, i['assigned_day'])
+    ps = [expected(sim.members[i['user_a']], sim.members[i['user_b']], i['assigned_day'])
           for i in sim.introductions]
     exp = sum(ps)
     served = {x for i in sim.introductions for x in (i['user_a'], i['user_b'])}
     for _ in range(40):
         sim.advance([])
     met, n = sim.metrics(), len(arrived)
-    return dict(role=role, preset=preset, seed=seed, family=family, valid=error is None, error=error, N=n,
+    out = dict(role=role, preset=preset, seed=seed, family=family, valid=error is None, error=error, N=n,
                 exp100=100 * exp / n, real100=100 * met['mutual_second_meeting_intention'] / n,
                 intros=len(sim.introductions), intros_d0_20=sum(i['assigned_day'] <= 20 for i in sim.introductions),
                 coverage=len(served & arrived) / n,
                 exp_count=exp, exp_var=sum(q * (1 - q) for q in ps),
                 real_count=met['mutual_second_meeting_intention'], ask_cost=met['ask_cost'],
                 mean_call_s=S.mean(times), max_call_s=max(times))
+    if detail:
+        # [arrived_day, first_intro_day | None, blocked (declined hard field), true response_rate,
+        #  observed no-responses, observed responses]  (the last two are what the policy can see)
+        first, resp = {}, {}
+        for i in sim.introductions:
+            for x in (i['user_a'], i['user_b']):
+                first.setdefault(x, i['assigned_day'])
+        for e in sim.events:
+            if e['event'] == 'introduction_response':
+                r = resp.setdefault(e['member_id'], [0, 0])
+                r[0] += e.get('missing_reason') == 'no_response'
+                r[1] += 1
+        out['members'] = [[m['arrived_day'], first.get(i), any(m['field_status'][k] == 'declined' for k in HARD),
+                           m['response_rate']] + resp.get(i, [0, 0])
+                          for i, m in sim.members.items() if i in arrived]
+    return out
 
 
 def ci(diffs):

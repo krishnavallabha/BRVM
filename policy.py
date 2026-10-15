@@ -31,8 +31,16 @@ PRESETS = {
     'ask_partners': {'ask_order': 'partners', 'soft_asks': False, 'match': 'greedy'},
     'ask_partners_soft': {'ask_order': 'partners', 'soft_asks': True, 'match': 'greedy'},
     'full': {'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'},
+    'full_resolved': {'ask_order': 'partners', 'soft_asks': 'resolved', 'match': 'maxcard_quality'},
+    # Day 3 ablations: full minus one feature
+    'full-partners': {'ask_order': 'greedy', 'soft_asks': True, 'match': 'maxcard_quality'},
+    'full-soft': {'ask_order': 'partners', 'soft_asks': False, 'match': 'maxcard_quality'},
+    'full-maxcard': {'ask_order': 'partners', 'soft_asks': True, 'match': 'greedy'},
+    'full-quality': {'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard'},
 }
-DEFAULT_CONFIG = PRESETS['greedy']
+# Day 3 (16 Oct): full = partners ask order + agreed soft asks + max pairs with quality tie-break.
+# +0.0084 [+0.002, +0.015] expected MSMI/100 vs greedy on 201-230; ties full_resolved at 1/2.7 the ask cost.
+DEFAULT_CONFIG = PRESETS['full']
 
 
 def log(msg):

@@ -198,3 +198,81 @@ No family is worse (no CI entirely below 0). `full` mean call 0.35 s, max 1.8 s 
 1. `full` is the candidate `DEFAULT_CONFIG`. Confirm it on 301–340.
 2. Also test `full` with `soft_asks: 'resolved'` (larger soft gain, ~3× ask cost). MSMI is primary, so take it if it wins on MSMI.
 3. `DEFAULT_CONFIG` stays `greedy` until the Day 3 confirmation and the container check.
+
+## 12. Day 3: default, confirmation, final run, Q1, Q2 (Krishna + Siddharth, 16 Oct)
+
+### 12.1 Default choice (dev seeds 201–230)
+
+| Comparison | Overall diff [95% CI] | Ask cost |
+|---|---|---|
+| `full` → `full_resolved` (Rishi's broad soft asks inside full) | −0.0004 [−0.0025, +0.0017] | 208 → 557 |
+
+The two tie on MSMI, and `full` costs 2.7× less in asks (a tie-breaker). **`DEFAULT_CONFIG = full`** (partners ask order, bonus 10; agreed soft asks; max pairs + quality tie-break). Ablation presets: `full-partners`, `full-soft`, `full-maxcard`, `full-quality`.
+
+### 12.2 Confirmation on reserved seeds 301–340 (first use)
+
+`python analysis/suite.py --presets greedy,no_asks,random,full,full-partners,full-soft,full-maxcard,full-quality --refs greedy,full --worlds all --seeds 301-340 --detail` → `results/confirmation_301_340.json`. 240 episodes per preset, 0 invalid.
+
+| Preset | Expected / 100 | Realised / 100 | vs greedy [95% CI] | vs full [95% CI] | Introductions (days 0–20) | Coverage | Ask cost | Mean / max call (s) |
+|---|---|---|---|---|---|---|---|---|
+| greedy | 0.3841 | 0.4521 | — | −0.0092 [−0.0174, −0.0011] | 76.5 (46.1) | 0.348 | 196.3 | 0.14 / 0.55 |
+| no_asks | 0.1109 | 0.1062 | −0.2732 [−0.2899, −0.2565] | −0.2824 [−0.3004, −0.2644] | 22.3 (16.2) | 0.126 | 0 | 0.18 / 0.92 |
+| random | 0.3864 | 0.3854 | +0.0024 [−0.0030, +0.0078] | −0.0069 [−0.0142, +0.0005] | 77.1 (46.1) | 0.349 | 196.3 | 0.13 / 0.64 |
+| **full** | **0.3933** | 0.4354 | **+0.0092 [+0.0011, +0.0174]** | — | 76.7 (46.9) | 0.349 | 208.8 | 0.26 / 1.76 |
+| full − partners | 0.3921 | 0.4188 | +0.0080 [+0.0007, +0.0154] | −0.0012 [−0.0087, +0.0063] | 76.7 (46.6) | 0.349 | 209.3 | 0.26 / 1.17 |
+| full − soft_asks | 0.3922 | 0.4167 | +0.0081 [+0.0002, +0.0161] | −0.0011 [−0.0030, +0.0007] | 77.1 (46.9) | 0.349 | 196.3 | 0.29 / 1.47 |
+| full − maxcard (greedy match) | 0.3926 | 0.3667 | +0.0086 [+0.0017, +0.0154] | −0.0007 [−0.0070, +0.0056] | 77.2 (46.5) | 0.347 | 208.8 | 0.28 / 0.85 |
+| full − quality (unit-weight maxcard) | 0.3851 | 0.4458 | +0.0011 [−0.0061, +0.0083] | **−0.0082 [−0.0142, −0.0021]** | 77.4 (47.5) | 0.349 | 208.3 | 0.22 / 0.65 |
+
+**Verdict.**
+- **`full` is confirmed on fresh seeds:** +0.0092 expected MSMI / 100 over greedy (+2.4%), matching dev (+0.0084). No family's CI lies entirely below 0; `delayed` is clearly positive (+0.017).
+- Realised MSMI on 240 episodes (0.435 vs 0.452) is within noise: per-episode SD ≈ 0.41, so the SE of the paired difference is about 0.04.
+- **Ablations:** the one load-bearing ingredient is a **soft-fit-aware matcher**. Removing the quality tie-break (unit-weight maxcard) loses −0.0082, which is significant. Removing any one of partners ordering, soft asks or max cardinality costs only about 0.001 each, all within noise. Any two of the three already give about +0.008 over greedy, so they are largely substitutes. That is consistent with the +7% headroom bound: there is little selection value left to stack.
+- **Asking dominates everything:** no_asks loses 71% of expected MSMI.
+- Q3b (waiting and fairness) on the same episodes: `report/match.md` §5, `results/q3b_waiting.json`.
+
+### 12.3 Official evaluator, seeds 101–103 × 6 (real subprocess protocol)
+
+| Policy | Valid | Realised score | Expected MSMI / 100 | Coverage | Mutual acc. / 100 | Ask cost |
+|---|---|---|---|---|---|---|
+| **full** (`results/final.json`) | 18/18 | 0.2778 | 0.3620 | 0.3747 | 5.97 | 219.8 |
+| greedy (`final_greedy.json`, actions identical to kit) | 18/18 | 0.3889 | 0.3728 | 0.3717 | 5.50 | 206.7 |
+| random (`final_random.json`) | 18/18 | 0.2778 | 0.3695 | 0.3767 | 5.33 | 206.7 |
+| no_asks (`final_no_asks.json`) | 18/18 | 0.1389 | 0.1162 | 0.1428 | 1.75 | 0 |
+
+Expected values are from `results/expected_101_103.json`. Most of the realised gap is luck: greedy realised 0.389 against 0.373 expected, full realised 0.278 against 0.362 expected. Even in expectation, though, full is slightly below greedy on these 3 seeds: −0.0108 (the normal-approx CI [−0.024, +0.003] is too narrow for n = 3; t(2) ≈ 4.3). It is positive in cold_start (+0.018) and negative in development (−0.022). Three seeds cannot separate a ±1% effect; the 40-seed confirmation in 12.2 is the deciding evidence. Time per call in this run was 1.4 s for full and 0.6 s for the baselines, measured with 12 analysis workers sharing the CPU. An idle re-measure is in 12.6.
+
+### 12.4 Q1: reservation prices (Siddharth). Does waiting help?
+
+Simple reservation `reserve_k`: drop an edge if both ends have ≥ k other feasible partners today and its quality is below the day's median. Dense stress worlds (`analysis/worlds.py`): 2–3 zones per member, ages ±12, more multi-gender `who_to_meet`. That gives about 3× the introductions and expected MSMI of standard worlds.
+
+| World | vs λ = 0 (full) | Overall diff [95% CI] |
+|---|---|---|
+| dense 201–260 | k = 1 / 2 / 3 | +0.0035 [−0.015, +0.022] / −0.0004 [−0.015, +0.015] / +0.0067 [−0.008, +0.021] |
+| standard 201–230 × 6 | k = 3 | +0.0005 [−0.0005, +0.0016] |
+
+**Answer: waiting never measurably helps,** even where choice exists. Introductions block people for only 8 days, and outcomes are driven by individual tendencies more than pair fit. Reservation stays off (λ = 0). The LP-dual variant was not attempted. Details: `report/match.md` §4.
+
+### 12.5 Q2: changing and overlapping conditions (seeds 201–260, no family-specific logic)
+
+| World | greedy | full | Diff [95% CI] |
+|---|---|---|---|
+| sparse + delayed together | 0.1177 | 0.1171 | −0.0006 [−0.002, +0.001] |
+| switch on day 30 (standard, then acceptance −0.5 and delayed dates) | 0.4219 | 0.4343 | **+0.0123 [+0.004, +0.021]** |
+| mixed arrivals (40% on day 0, the rest over days 1–40) | 0.4132 | 0.4211 | +0.0079 [−0.002, +0.018] |
+| **overall** | 0.3176 | 0.3242 | **+0.0065 [+0.002, +0.011]** |
+
+`full` keeps its advantage under changing conditions, without detecting them. It ties where there is nothing to choose (sparse). Worlds are built in `analysis/worlds.py` by wrapping `generate` and subclassing `Simulator`; `kit.py` is unchanged. `expected.p_msmi` gained `logit_shift` / `date_variant` arguments (the defaults reproduce the kit) to score the switch world. File: `results/q2_changing.json`.
+
+### 12.6 Runtime of the default (`full`)
+
+- Real subprocess protocol on an idle Windows machine (seed 101, development and delayed): **1.0 s per call on average**, both episodes valid. greedy: 0.33 s.
+- The extra time is mostly the per-call `networkx` import on match calls (about 1 s on Windows; the process restarts every call) plus the partner counts in the ask phase.
+- In-process worst case over 240 confirmation episodes: 1.76 s under full CPU load. That is far inside the 10 s limit and the 6 s soft limit.
+- Container timing (Linux, 2 CPUs) still to be recorded by Rishi's container check.
+
+### 12.7 Status
+
+- `DEFAULT_CONFIG = full`; `python -m unittest` 34/34 pass.
+- Results: `confirmation_301_340.json`, `final*.json`, `expected_101_103.json`, `q1_dense_201_260.json`, `q1_standard_201_230.json`, `q2_changing.json`, `q3b_waiting.json`. Match-phase write-up: `report/match.md`.
+- **Second pin:** waiting on Rishi's container check of this build (`docker build`, `evaluate.py --image ... --seeds 101 --variants all`, `networkx` present in the image).

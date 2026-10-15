@@ -1,5 +1,6 @@
 import itertools
 import random
+import statistics
 import time
 
 from kit import baseline_match, eligibility
@@ -81,6 +82,14 @@ def choose(state, memory, config):
                 if eligibility(a, b)['status'] == 'feasible':
                     w = (BASE_WEIGHT + pair_quality(a, b)) if how == 'maxcard_quality' else 1.0
                     G.add_edge(key[0], key[1], weight=w)
+
+            k = config.get('reserve_k')
+            if k and how == 'maxcard_quality' and G.number_of_edges():
+                # Q1 simple reservation: hold back a below-median-quality edge when both people
+                # have >= k other feasible partners today, so they can wait for a better one.
+                med = statistics.median(d['weight'] for _, _, d in G.edges(data=True))
+                G.remove_edges_from([(u, v) for u, v, d in G.edges(data=True)
+                                     if d['weight'] < med and G.degree(u) - 1 >= k and G.degree(v) - 1 >= k])
 
             matching = nx.max_weight_matching(G, maxcardinality=True)
             pairs = sorted([sorted(list(edge)) for edge in matching])
