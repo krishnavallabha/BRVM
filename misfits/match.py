@@ -2,11 +2,6 @@ import itertools
 import random
 import time
 
-try:
-    import networkx as nx
-except ImportError:
-    nx = None
-
 from kit import baseline_match, eligibility
 
 # Hand-set soft-compatibility prior weights (Day 2)
@@ -65,7 +60,9 @@ def choose(state, memory, config):
         return pairs, memory
 
     if how in ('maxcard', 'maxcard_quality'):
-        if nx is None:
+        try:
+            import networkx as nx  # lazy: ~1 s import, and the process restarts every call
+        except ImportError:
             return baseline_match(state), memory
         t0 = time.perf_counter()
         try:

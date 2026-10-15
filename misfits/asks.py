@@ -1,23 +1,23 @@
-"""Ask phase (owner: Rishi).
+"""Ask phase (owner: Rishi; partners ordering + agreed soft asks completed by Krishna, 15 Oct).
 
-Day 1: Priority-ranked hard-constraint clarification.
-       Ask for members whose hard constraints are most incomplete first (sorted by number
-       of not_asked hard fields, descending). Skips members with any declined hard field
-       because those cannot be recovered and asking only partially helps.
+config['ask_order'] (3-unit hard bundles, at most budget // 3 per day):
+  'greedy'       kit baseline_asks order, so the greedy preset reproduces the kit exactly
+  'partners'     likely partner count (pairs not yet 'infeasible' with any available member),
+                 + ARRIVAL_BONUS for arrivals in the last 3 days; ties by member_id
+  'missing_hard' Rishi v1: most not_asked hard fields first
+  'none'         no asks at all
 
-Day 2: Soft-field clarification with idle budget (soft_asks: True).
-       After spending the constraint budget, use any remaining budget (up to 12 units/day)
-       to ask the most-valuable soft fields for members whose hard constraints are already
-       fully resolved. Fields are asked in value order:
-         relationship_goal   (+3.0 / -1.5 weight in pair_quality)
-         relationship_pace   (+1.5 / -0.75)
-         lifestyle           (+0.5 / -0.25)
-         conversations       (+0.4 / -0.2)
-         emotional_availability, space_for_relationship, relocate  (tie-breaking / completeness)
-       Within each field, members with the most total missing soft fields are asked first
-       (they benefit most from clarification).
+config['soft_asks'] (1-unit asks with the budget left over):
+  False / None   off
+  True           agreed design: relationship_goal, then relationship_pace, only for members
+                 with >= 2 feasible available partners, most partners first
+  'resolved'     Rishi v1: every soft field in SOFT_PRIORITY order, for members whose hard
+                 fields are all observed/declined, most missing soft fields first
 """
-from kit import HARD, SOFT
+from kit import HARD, SOFT, baseline_asks, eligibility
+
+ARRIVAL_BONUS = 10     # added to a new arrival's likely-partner count; tuned on seeds 201-230
+SOFT_FIELDS = ['relationship_goal', 'relationship_pace']  # agreed design: strongest acceptance factors
 
 # Soft fields in decreasing value order (matches pair_quality weights in match.py).
 SOFT_PRIORITY = [
@@ -39,58 +39,73 @@ def _count_missing_soft(m):
     return sum(1 for k in SOFT if m['field_status'][k] == 'not_asked')
 
 
+def _partner_counts(members, past, ok):
+    """member_id -> number of other available members m with ok(eligibility status)."""
+    counts = {m['member_id']: 0 for m in members}
+    for i, a in enumerate(members):
+        for b in members[i + 1:]:
+            if tuple(sorted((a['member_id'], b['member_id']))) not in past and ok(eligibility(a, b)['status']):
+                counts[a['member_id']] += 1
+                counts[b['member_id']] += 1
+    return counts
+
+
 def choose(state, memory, config):
     """Return (asks, memory). asks = [{'member_id': str, 'field': 'constraints' | <soft field>}]"""
-    if config.get('ask_order') == 'none':
+    order = config.get('ask_order')
+    if order == 'none':
         return [], memory
 
     members = [m for m in state['members'] if m['available']]
     budget = state['ask_budget_remaining']
-    asks = []
-
-    # ── Day 1: Priority-ranked hard-constraint asks ────────────────────────────
-    # Candidates: available members who have at least one not_asked hard field and
-    # no declined hard field (a declined hard field blocks us from using constraints
-    # bundle for them effectively, since the declined answer stays unknown).
+    past = {tuple(sorted((i['user_a'], i['user_b']))) for i in state['introductions']}
     hard_candidates = [
         m for m in members
         if _count_missing_hard(m) > 0
         and not any(m['field_status'][k] == 'declined' for k in HARD)
     ]
-    # Prioritise members with the most missing hard fields (most to gain from one ask).
-    hard_candidates.sort(key=_count_missing_hard, reverse=True)
 
-    for m in hard_candidates:
-        if budget < 3:
-            break
-        asks.append({'member_id': m['member_id'], 'field': 'constraints'})
-        budget -= 3
+    # -- Day 1: hard-constraint bundles (3 units each) --
+    if order == 'partners':
+        # Likely partner count: unknown fields don't block (anything but 'infeasible'),
+        # plus a bonus for members who arrived in the last 3 days.
+        likely = _partner_counts(members, past, lambda st: st != 'infeasible')
+        bonus = config.get('arrival_bonus', ARRIVAL_BONUS)
+        score = {m['member_id']: likely[m['member_id']] + (bonus if state['day'] - m['arrived_day'] <= 2 else 0)
+                 for m in hard_candidates}
+        hard_candidates.sort(key=lambda m: (-score[m['member_id']], m['member_id']))
+    elif order == 'missing_hard':
+        # Prioritise members with the most missing hard fields (most to gain from one ask).
+        hard_candidates.sort(key=_count_missing_hard, reverse=True)
+    if order in ('partners', 'missing_hard'):
+        asks = [{'member_id': m['member_id'], 'field': 'constraints'} for m in hard_candidates[:budget // 3]]
+    else:  # 'greedy': kit order, so the greedy preset stays exactly the kit baseline
+        asks = baseline_asks(state)
+    budget -= 3 * len(asks)
 
-    # ── Day 2: Soft-field asks with idle budget ────────────────────────────────
-    if not config.get('soft_asks') or budget <= 0:
+    # -- Day 2: soft-field asks with idle budget (1 unit each) --
+    soft = config.get('soft_asks')
+    if not soft or budget <= 0:
         return asks, memory
 
-    # Only ask soft fields for members whose hard constraints are fully resolved
-    # (either observed or declined). Members still missing hard fields are blocked
-    # regardless, so spending the 1-unit budget on their soft fields rarely helps.
-    soft_candidates = [
-        m for m in members
-        if all(m['field_status'][k] in ('observed', 'declined') for k in HARD)
-    ]
-    # Within each field, prefer members with more total missing soft fields first
-    # (they stand to benefit most from further clarification).
-    soft_candidates.sort(key=_count_missing_soft, reverse=True)
-
-    # Ask field by field in priority order. For each field, ask all candidates who
-    # have not yet answered it, until the budget runs out.
-    for field in SOFT_PRIORITY:
-        if budget <= 0:
-            break
-        for m in soft_candidates:
+    if soft == 'resolved':
+        # Rishi v1: members whose hard fields are all observed/declined, most missing soft first,
+        # every soft field in SOFT_PRIORITY order.
+        candidates = [m for m in members if all(m['field_status'][k] in ('observed', 'declined') for k in HARD)]
+        candidates.sort(key=_count_missing_soft, reverse=True)
+        fields = SOFT_PRIORITY
+    else:
+        # Agreed design: a soft answer can only change a choice when there is more than one
+        # option, so ask only members with >= 2 feasible available partners, most partners first.
+        feasible = _partner_counts(members, past, lambda st: st == 'feasible')
+        candidates = sorted((m for m in members if feasible[m['member_id']] >= 2),
+                            key=lambda m: (-feasible[m['member_id']], m['member_id']))
+        fields = SOFT_FIELDS
+    for field in fields:
+        for m in candidates:
             if budget <= 0:
-                break
+                return asks, memory
             if m['field_status'][field] == 'not_asked':
                 asks.append({'member_id': m['member_id'], 'field': field})
                 budget -= 1
-
     return asks, memory

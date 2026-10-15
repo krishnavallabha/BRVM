@@ -18,8 +18,18 @@ import policy  # noqa: E402
 Z95 = 1.96  # ponytail: normal approx; for n=30 the t quantile (2.045) widens the CI ~4%
 
 
+def register(preset):
+    """'base@key=val,key=val' -> add a tuning preset (base config with numeric overrides)."""
+    if preset not in policy.PRESETS and '@' in preset:
+        base, _, kv = preset.partition('@')
+        policy.PRESETS[preset] = dict(policy.PRESETS[base], **{k: float(v) for k, v in
+                                                               (x.split('=') for x in kv.split(','))})
+    return preset in policy.PRESETS
+
+
 def episode(args):
     role, preset, seed, family = args
+    register(preset)
     sim = Simulator(generate(seed, 200, 'evaluation', family))
     memory, times, error = None, [], None
     try:
@@ -46,7 +56,8 @@ def episode(args):
     met, n = sim.metrics(), len(arrived)
     return dict(role=role, preset=preset, seed=seed, family=family, valid=error is None, error=error, N=n,
                 exp100=100 * exp / n, real100=100 * met['mutual_second_meeting_intention'] / n,
-                intros=len(sim.introductions), coverage=len(served & arrived) / n,
+                intros=len(sim.introductions), intros_d0_20=sum(i['assigned_day'] <= 20 for i in sim.introductions),
+                coverage=len(served & arrived) / n,
                 exp_count=exp, exp_var=sum(q * (1 - q) for q in ps),
                 real_count=met['mutual_second_meeting_intention'], ask_cost=met['ask_cost'],
                 mean_call_s=S.mean(times), max_call_s=max(times))
@@ -60,7 +71,7 @@ def ci(diffs):
 
 def summarise(rows, seeds, families):
     by = {(r['role'], r['seed'], r['family']): r for r in rows}
-    keys = ('exp100', 'real100', 'intros', 'coverage', 'ask_cost')
+    keys = ('exp100', 'real100', 'intros', 'intros_d0_20', 'coverage', 'ask_cost')
     out = {'families': {}, 'invalid_episodes': sum(not r['valid'] for r in rows),
            'max_call_s': {p: max(r['max_call_s'] for r in rows if r['role'] == p) for p in 'AB'},
            'mean_call_s': {p: S.mean(r['mean_call_s'] for r in rows if r['role'] == p) for p in 'AB'}}
@@ -87,8 +98,10 @@ def show(summary):
         print('%-12s %8.4f %8.4f %+9.4f [%+7.4f,%+7.4f] %8.4f %8.4f %7.1f %7.1f %6.3f %6.3f %6.1f %6.1f' % (
             name, s[a]['exp100'], s[b]['exp100'], d['mean'], d['lo'], d['hi'], s[a]['real100'], s[b]['real100'],
             s[a]['intros'], s[b]['intros'], s[a]['coverage'], s[b]['coverage'], s[a]['ask_cost'], s[b]['ask_cost']))
-    print('invalid episodes: %d | call time mean/max (s): %s' % (summary['invalid_episodes'], {
-        p: (round(summary['mean_call_s'][p], 4), round(summary['max_call_s'][p], 3)) for p in 'AB'}))
+    print('invalid episodes: %d | call time mean/max (s): %s | intros days 0-20 A/B: %.1f / %.1f' % (
+        summary['invalid_episodes'],
+        {p: (round(summary['mean_call_s'][p], 4), round(summary['max_call_s'][p], 3)) for p in 'AB'},
+        summary['overall']['A']['intros_d0_20'], summary['overall']['B']['intros_d0_20']))
 
 
 def parse_seeds(text):
@@ -106,7 +119,7 @@ if __name__ == '__main__':
     p.add_argument('--output')
     args = p.parse_args()
     for preset in (args.a, args.b):
-        if preset not in policy.PRESETS:
+        if not register(preset):
             p.error('unknown preset %r; known: %s' % (preset, sorted(policy.PRESETS)))
     seeds = parse_seeds(args.seeds)
     families = list(VARIANTS) if args.families == 'all' else args.families.split(',')

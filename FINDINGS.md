@@ -131,3 +131,70 @@ Edge weights $w = 1000 + q(i, j)$ with `maxcardinality=True`. $q(i, j)$ uses han
 - **Runtime**: Mean call time is 0.10–0.11 s, max under 0.5 s in-process (and under 2 s in the worst multi-worker case), cleanly within the 3.0 s budget. 0 invalid episodes.
 
 
+## 10. Day 2 merge check: tests, data, official evaluator (Krishna, 14 Oct)
+
+State: `main` after merging `siddharth` (PR #1). `DEFAULT_CONFIG` is still `greedy`; choosing the default is the Day 3 decision.
+
+- **Tests:** `tests/test_policy.py` adds 12 tests that call `policy.decide` directly for **every preset** (`greedy`, `no_asks`, `random`, `maxcard`, `maxcard_quality`):
+  - empty `members`; nobody available; all fields `None`; all fields declined; every pair already introduced
+  - the largest request (real episode at day 59: 200 members, >50 introductions, >100 feedback rows), under 2 s per call, and the same request through the real subprocess
+  - memory `None`, `{}`, malformed, or over 800 KB
+  - choosers that raise, return garbage or NaN memory, or hang (soft limit)
+  - determinism
+  - Every response passes `evaluate.validate_response` plus a full validity re-check (availability, `kit.eligibility == 'feasible'`, no repeats or reuse, ask budget, no observed or declined fields). Mutation check: with the validators disabled, 30 sub-tests fail.
+  - `python -m unittest -v`: **34 / 34 pass** (kit tests + ours).
+- **`verify_data.py`** failed on Windows because `core.autocrlf=true` rewrote line endings in the checksummed kit data. Fixed with `.gitattributes` (`data/** -text`, `data_manifest.json -text`). Now passes (71 files).
+- **Official evaluator, seeds 101–103 × 6 (real subprocess protocol):**
+
+| Policy | Valid | Score | Coverage | Mutual acc. / 100 | Ask cost | Time per call |
+|---|---|---|---|---|---|---|
+| default (= greedy) | 18 / 18 | **0.3889** (unchanged) | 0.3717 | 5.50 | 206.7 | 0.33 s |
+| `maxcard_quality` (via a variant wrapper) | 18 / 18 | 0.2222 | 0.3756 | 5.64 | 206.7 | 0.88 s |
+
+  The realised-score gap on 18 episodes is noise (per-episode SD ≈ 0.41). The expected-MSMI comparison on 201–230 (section 9) has `maxcard_quality` vs greedy at +0.0004 [−0.005, +0.006]. Files: `results/day2_default_check.json`, `results/day2_maxcard_quality_check.json`.
+- **Runtime fix:** `misfits/match.py` imported `networkx` at module load. That costs about 1 s per call on Windows, and the policy process restarts every call, so every call paid it (ask phase and greedy too). The import is now lazy inside the `maxcard` branch: `import policy` went from 1.15 s to 0.15 s, and default calls dropped back to 0.33 s.
+- **Open for Rishi's container check:** the `Dockerfile` must install `requirements.txt`. Without it, `maxcard*` silently falls back to greedy inside the container (the `ImportError` fallback).
+- **First pin:** waiting on Rishi's Day 2 container check.
+
+## 11. Merge of Rishi's Day 1–2 work + completion of the ask-phase items (Krishna, 15 Oct)
+
+All numbers: `analysis/compare.py`, seeds 201–230 × 6 families, paired expected MSMI / 100 (95% CI), 0 invalid episodes in every run.
+
+**Merge fixes.** Rishi's commit (`9d0cc08`) changed the `'greedy'` ask order itself (most missing hard fields first), so the `greedy` preset and `DEFAULT_CONFIG` no longer reproduced the kit. That ordering now lives behind `ask_order: 'missing_hard'`; `greedy` is the kit again. Re-checked with the official evaluator on 101–103 × 6: 0.3889, 18/18 valid, every `action_sha256` identical to kit greedy (`results/day2_merged_default_check.json`). The `Dockerfile` now installs `requirements.txt` (networkx). **The container check is still open (Rishi).**
+
+**Item 1, question order.** `ask_order: 'partners'` follows the agreed design: likely partner count (other available members not yet `infeasible`), plus a bonus for arrivals in the last 3 days, ties broken by `member_id`, top `budget // 3`. Likely counts are about 25–85 per candidate, so the bonus was swept over {0, 10, 25, 50}:
+
+| vs greedy | Overall diff | Introductions, days 0–20 (greedy 42.2) |
+|---|---|---|
+| `missing_hard` (Rishi v1) | +0.0013 [−0.0028, +0.0055] | — |
+| partners, bonus 0 | +0.0015 [−0.0047, +0.0077] | 43.0 |
+| **partners, bonus 10 (chosen)** | +0.0023 [−0.0036, +0.0083] | 43.1 |
+| partners, bonus 25 | +0.0017 [−0.0041, +0.0076] | 43.1 |
+| partners, bonus 50 | +0.0006 [−0.0060, +0.0072] | 42.9 |
+
+No family's CI lies entirely below 0. Ask calls cost about 2× (0.21 vs 0.11 s mean, max 0.6 s). **Verdict:** a slight lift in early introductions, but no significant gain on its own. It is kept only because of its contribution inside `full` (below).
+
+**Item 3, soft questions.**
+
+| Comparison | Overall diff | Ask cost / episode |
+|---|---|---|
+| greedy → `soft_asks` (agreed: goal then pace, members with ≥ 2 feasible partners) | +0.0018 [−0.0007, +0.0043] | 196 → 208 |
+| greedy → `soft_asks_resolved` (Rishi v1: every soft field, anyone with hard fields resolved) | **+0.0061 [+0.0025, +0.0098]** | 196 → 556 |
+| `maxcard_quality` → `maxcard_quality_soft_resolved` | **+0.0034 [+0.0007, +0.0060]** | 196 → 555 |
+| `ask_partners` → `ask_partners_soft` | **+0.0043 [+0.0019, +0.0067]** | 196 → 208 |
+
+The narrow agreed version is cheap but too late: it asks only members who already have ≥ 2 partners. Rishi's broad version asks earlier, so the answer is known when the member becomes matchable. It is 3× the gain, but almost 3× the ask cost (a tie-breaker only).
+
+**Combined.**
+
+| Comparison | Overall diff | Families with CI > 0 | Ask cost | Introductions (days 0–20) |
+|---|---|---|---|---|
+| greedy → **`full`** (partners + soft_asks + maxcard_quality) | **+0.0084 [+0.0021, +0.0148]** (+2.3%) | cold_start | 196 → 208 | 72.4 → 72.4 (42.2 → 44.1) |
+| `maxcard_quality` → `full` | **+0.0080 [+0.0019, +0.0141]** | delayed, shift, drift | 196 → 208 | 72.3 → 72.4 |
+
+No family is worse (no CI entirely below 0). `full` mean call 0.35 s, max 1.8 s in-process under full CPU load. The pieces interact: each is within noise alone, but together soft answers feed the quality tie-break of the max-pairs matcher.
+
+**Recommendations for Day 3:**
+1. `full` is the candidate `DEFAULT_CONFIG`. Confirm it on 301–340.
+2. Also test `full` with `soft_asks: 'resolved'` (larger soft gain, ~3× ask cost). MSMI is primary, so take it if it wins on MSMI.
+3. `DEFAULT_CONFIG` stays `greedy` until the Day 3 confirmation and the container check.

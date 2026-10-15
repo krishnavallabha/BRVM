@@ -25,6 +25,12 @@ PRESETS = {
     'maxcard_quality': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'maxcard_quality'},
     # Rishi Day 2: maxcard_quality matching + soft-field clarification with idle budget
     'maxcard_quality_soft': {'ask_order': 'greedy', 'soft_asks': True, 'match': 'maxcard_quality'},
+    'ask_missing_hard': {'ask_order': 'missing_hard', 'soft_asks': False, 'match': 'greedy'},
+    'soft_asks': {'ask_order': 'greedy', 'soft_asks': True, 'match': 'greedy'},
+    'soft_asks_resolved': {'ask_order': 'greedy', 'soft_asks': 'resolved', 'match': 'greedy'},
+    'ask_partners': {'ask_order': 'partners', 'soft_asks': False, 'match': 'greedy'},
+    'ask_partners_soft': {'ask_order': 'partners', 'soft_asks': True, 'match': 'greedy'},
+    'full': {'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'},
 }
 DEFAULT_CONFIG = PRESETS['greedy']
 
