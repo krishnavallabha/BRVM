@@ -18,28 +18,28 @@ SOFT_LIMIT = 6.0                 # seconds for choose(); the hard limit is 10 s 
 MEMORY_LIMIT = 800 * 1024        # bytes
 
 PRESETS = {
-    'greedy': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'greedy'},
-    'no_asks': {'ask_order': 'none', 'soft_asks': False, 'match': 'greedy'},
-    'random': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'random'},
-    'maxcard': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'maxcard'},
-    'maxcard_quality': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'maxcard_quality'},
-    # Rishi Day 2: maxcard_quality matching + soft-field clarification with idle budget
-    'maxcard_quality_soft': {'ask_order': 'greedy', 'soft_asks': True, 'match': 'maxcard_quality'},
-    'ask_missing_hard': {'ask_order': 'missing_hard', 'soft_asks': False, 'match': 'greedy'},
-    'soft_asks': {'ask_order': 'greedy', 'soft_asks': True, 'match': 'greedy'},
-    'soft_asks_resolved': {'ask_order': 'greedy', 'soft_asks': 'resolved', 'match': 'greedy'},
-    'ask_partners': {'ask_order': 'partners', 'soft_asks': False, 'match': 'greedy'},
-    'ask_partners_soft': {'ask_order': 'partners', 'soft_asks': True, 'match': 'greedy'},
-    'full': {'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'},
-    'full_resolved': {'ask_order': 'partners', 'soft_asks': 'resolved', 'match': 'maxcard_quality'},
-    # Day 3 ablations: full minus one feature
-    'full-partners': {'ask_order': 'greedy', 'soft_asks': True, 'match': 'maxcard_quality'},
-    'full-soft': {'ask_order': 'partners', 'soft_asks': False, 'match': 'maxcard_quality'},
-    'full-maxcard': {'ask_order': 'partners', 'soft_asks': True, 'match': 'greedy'},
-    'full-quality': {'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard'},
+    # ── kit baselines (reproduce exactly) ──────────────────────────────────────
+    'greedy':            {'ask_order': 'greedy',       'soft_asks': False,      'match': 'greedy'},
+    'no_asks':           {'ask_order': 'none',         'soft_asks': False,      'match': 'greedy'},
+    'random':            {'ask_order': 'greedy',       'soft_asks': False,      'match': 'random'},
+    # ── incremental components ──────────────────────────────────────────────────
+    'maxcard':           {'ask_order': 'greedy',       'soft_asks': False,      'match': 'maxcard'},
+    'maxcard_quality':   {'ask_order': 'greedy',       'soft_asks': False,      'match': 'maxcard_quality'},
+    # ── Rishi Day 1–2 ask-order variants ───────────────────────────────────────
+    'missing_hard':      {'ask_order': 'missing_hard', 'soft_asks': False,      'match': 'greedy'},
+    'ask_partners':      {'ask_order': 'partners',     'soft_asks': False,      'match': 'greedy'},
+    'ask_partners_soft': {'ask_order': 'partners',     'soft_asks': 'agreed',   'match': 'greedy'},
+    # ── Rishi Day 2 broad soft asks ────────────────────────────────────────────
+    'maxcard_quality_soft': {'ask_order': 'greedy',    'soft_asks': 'resolved', 'match': 'maxcard_quality'},
+    # ── Day 3: full policy (DEFAULT) and ablations ──────────────────────────────
+    # full = partners ask order (bonus 10) + agreed soft asks + maxcard+quality match
+    'full':              {'ask_order': 'partners',     'soft_asks': 'agreed',   'match': 'maxcard_quality'},
+    'full-partners':     {'ask_order': 'greedy',       'soft_asks': 'agreed',   'match': 'maxcard_quality'},  # ablation: no partners ordering
+    'full-soft':         {'ask_order': 'partners',     'soft_asks': False,      'match': 'maxcard_quality'},  # ablation: no soft asks
+    'full-maxcard':      {'ask_order': 'partners',     'soft_asks': 'agreed',   'match': 'greedy'},           # ablation: greedy match
+    'full-quality':      {'ask_order': 'partners',     'soft_asks': 'agreed',   'match': 'maxcard'},          # ablation: unit-weight maxcard
+    'full_resolved':     {'ask_order': 'partners',     'soft_asks': 'resolved', 'match': 'maxcard_quality'},  # broad soft asks inside full
 }
-# Day 3 (16 Oct): full = partners ask order + agreed soft asks + max pairs with quality tie-break.
-# +0.0084 [+0.002, +0.015] expected MSMI/100 vs greedy on 201-230; ties full_resolved at 1/2.7 the ask cost.
 DEFAULT_CONFIG = PRESETS['full']
 
 
