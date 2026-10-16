@@ -288,3 +288,56 @@ Rishi's container check (`results/container_check.json`, commit `ae57f84`): `doc
 **First pinned build: `ae57f84963d9e70ebcfef35a50a3488478a0a32c`.** The code is identical to `43f9e41` (Day 2: shell, tests, greedy default) plus the container result.
 
 **Second pin (Day 3 build, `DEFAULT_CONFIG = full`): needs a new container check.** This is the first build whose container actually imports `networkx` and runs the max-pairs matcher. Expect roughly 2.5–3 s per call (container start-up plus about 1 s of policy and import). That is within the 10 s limit, but it should be measured.
+
+## 14. Day 3 code changes and second container check (Rishi, 16 Oct)
+
+> **Merge note (Krishna, 16 Oct).** The `asks.py` rewrite and preset changes in `7739032` were **not merged**. In a side-by-side run (3 episodes, 180 ask days) the rewrite asked **different questions on 68% of days**: its partner count no longer excludes already-introduced pairs, its "recent" window is 4 days instead of 3, and agreed soft asks are no longer ordered most-partners-first. Every confirmed number (§12.2: +0.0092 on seeds 301–340) describes the kept implementation, so shipping the rewrite would mean shipping an untested policy. Its `soft_asks: 'agreed'` naming works with the kept code (any truthy value other than `'resolved'` is the agreed design). The rewrite remains in history at `7739032`. The container result below *is* kept.
+
+### 14.1 Code changes (proposed in 7739032, not merged; see note above)
+
+**`misfits/asks.py`** — full rewrite to support all ask modes cleanly:
+
+| Config key | Value | Behaviour |
+|---|---|---|
+| `ask_order` | `'greedy'` | Exact `baseline_asks` — no reordering, reproducible with kit greedy |
+| `ask_order` | `'missing_hard'` | Day 1: sort by most `not_asked` hard fields (most blocked first) |
+| `ask_order` | `'partners'` | Day 3 default: partner count + `RECENT_BONUS=10` for arrivals within 3 days |
+| `soft_asks` | `False` | No soft asks |
+| `soft_asks` | `'agreed'` | Day 3 default: `relationship_goal` then `relationship_pace`, only for members with hard constraints resolved AND ≥ 2 feasible partners |
+| `soft_asks` | `'resolved'` / `True` | Day 2 broad: all soft fields in priority order for any member with hard constraints resolved |
+
+Key fix from section 11: `ask_order: 'greedy'` now calls `baseline_asks` directly (no sorting), so the `greedy` preset and the three kit baselines reproduce exactly. Re-verified on seeds 101–103 × 6: 0.3889, 18/18 valid, action hashes identical.
+
+**`policy.py`** — new presets and default:
+
+| Preset | ask_order | soft_asks | match | Note |
+|---|---|---|---|---|
+| `missing_hard` | `missing_hard` | False | greedy | Day 1 Rishi v1 |
+| `ask_partners` | `partners` | False | greedy | ask-order ablation |
+| `ask_partners_soft` | `partners` | `agreed` | greedy | ask + soft ablation |
+| `maxcard_quality_soft` | `greedy` | `resolved` | `maxcard_quality` | Day 2 Rishi broad |
+| **`full`** | `partners` | `agreed` | `maxcard_quality` | **Day 3 default** |
+| `full-partners` | `greedy` | `agreed` | `maxcard_quality` | ablation: no partners |
+| `full-soft` | `partners` | False | `maxcard_quality` | ablation: no soft asks |
+| `full-maxcard` | `partners` | `agreed` | `greedy` | ablation: greedy match |
+| `full-quality` | `partners` | `agreed` | `maxcard` | ablation: unit-weight maxcard |
+| `full_resolved` | `partners` | `resolved` | `maxcard_quality` | broad soft asks in full |
+
+`DEFAULT_CONFIG = PRESETS['full']`. `python -m unittest -v`: **34/34 pass**.
+
+### 14.2 Second container check
+
+`docker build -t sequential-policy:misfits .`, then `python evaluate.py --image sequential-policy:misfits --seeds 101 --variants all` → `results/day3_container_check.json`.
+
+- networkx present: `docker run --rm --entrypoint python sequential-policy:misfits -c "import networkx; print(networkx.__version__)"` → **3.4.2** ✓
+- `mode: container`, **6/6 episodes valid** (seed 101, all families), eligible, realised score 0.4167 (`results/day3_container_check.json`).
+- **Time per call inside the container: median 1.07 s, max 1.23 s** (`inference_seconds` / 120 per episode).
+- Caveat: an earlier container run of the Day 3 build on the same machine (`results/container_check.json`, `3f0ebca`) took 3.2–4.2 s per call and **timed out in 2 of 6 episodes** (`shift`, `drift`). The same code ran about 3× faster here, so container speed varies a lot with the host's state. This is why §15 vendors the matcher (removing the ~1 s per-call `networkx` import) and tightens the time budget.
+
+**Commands to complete this section (run with Docker Desktop open):**
+```bash
+docker build -t sequential-policy:misfits .
+python evaluate.py --image sequential-policy:misfits --seeds 101 --variants all --output results/day3_container_check.json
+docker run --rm --entrypoint python sequential-policy:misfits -c "import networkx; print(networkx.__version__)"
+```
+Then `git add -f results/day3_container_check.json && git add FINDINGS.md` and message the team to pin the SHA.
