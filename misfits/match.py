@@ -1,9 +1,9 @@
 import itertools
 import random
 import statistics
-import time
 
 from kit import baseline_match, eligibility
+from misfits import bayes, blossom  # blossom: vendored NetworkX matching, no 1 s networkx import per call
 
 # Hand-set soft-compatibility prior weights (Day 2)
 BASE_WEIGHT = 1000.0
@@ -42,6 +42,33 @@ def pair_quality(a, b):
     return q
 
 
+FIT_PRIOR = [W_GOAL_MATCH / bayes.Q_SCALE, W_PACE_MATCH / bayes.Q_SCALE,
+             W_LIFESTYLE_MATCH / bayes.Q_SCALE, W_CONVERSATIONS_MATCH / bayes.Q_SCALE]
+MAX_BONUS = 200.0  # all model terms together stay far below BASE_WEIGHT, so cardinality is never traded
+
+
+def quality_fn(state, candidates, config):
+    """Edge quality for maxcard_quality: hand-set q, or the learned fit, plus optional person and
+    slot terms (each switchable for ablations; all off reproduces Day 3 `full` exactly)."""
+    terms = []
+    if config.get('learn_fit'):
+        w, _ = bayes.fit_model(state, FIT_PRIOR)
+        terms.append(lambda a, b: bayes.Q_SCALE * sum(wk * xk for wk, xk in zip(w, bayes.fit_features(a, b))))
+    else:
+        terms.append(pair_quality)
+    kp = config.get('person_weight')
+    if kp:
+        score, _ = bayes.person_model(state)
+        terms.append(lambda a, b: kp * (score.get(a['member_id'], 0.0) + score.get(b['member_id'], 0.0)))
+    ks = config.get('slot_price')
+    if ks:
+        press = bayes.slot_pressure(state, candidates)
+        terms.append(lambda a, b: ks * (press.get(a['member_id'], 0.0) + press.get(b['member_id'], 0.0)))
+    if len(terms) == 1:
+        return terms[0]
+    return lambda a, b: max(-MAX_BONUS, min(MAX_BONUS, sum(t(a, b) for t in terms)))
+
+
 def choose(state, memory, config):
     """Return (pairs, memory). pairs = [[id_a, id_b], ...]"""
     how = config.get('match')
@@ -62,17 +89,13 @@ def choose(state, memory, config):
 
     if how in ('maxcard', 'maxcard_quality'):
         try:
-            import networkx as nx  # lazy: ~1 s import, and the process restarts every call
-        except ImportError:
-            return baseline_match(state), memory
-        t0 = time.perf_counter()
-        try:
             candidates = sorted(
                 [m for m in state['members'] if m['available']],
                 key=lambda m: m['member_id']
             )
             past = {tuple(sorted((i['user_a'], i['user_b']))) for i in state['introductions']}
-            G = nx.Graph()
+            quality = quality_fn(state, candidates, config) if how == 'maxcard_quality' else None
+            G = blossom.Graph()
             for m in candidates:
                 G.add_node(m['member_id'])
             for a, b in itertools.combinations(candidates, 2):
@@ -80,7 +103,7 @@ def choose(state, memory, config):
                 if key in past:
                     continue
                 if eligibility(a, b)['status'] == 'feasible':
-                    w = (BASE_WEIGHT + pair_quality(a, b)) if how == 'maxcard_quality' else 1.0
+                    w = (BASE_WEIGHT + quality(a, b)) if how == 'maxcard_quality' else 1.0
                     G.add_edge(key[0], key[1], weight=w)
 
             k = config.get('reserve_k')
@@ -91,12 +114,8 @@ def choose(state, memory, config):
                 G.remove_edges_from([(u, v) for u, v, d in G.edges(data=True)
                                      if d['weight'] < med and G.degree(u) - 1 >= k and G.degree(v) - 1 >= k])
 
-            matching = nx.max_weight_matching(G, maxcardinality=True)
-            pairs = sorted([sorted(list(edge)) for edge in matching])
-
-            if time.perf_counter() - t0 > 3.0:
-                return baseline_match(state), memory
-            return pairs, memory
+            matching = blossom.max_weight_matching(G, maxcardinality=True)
+            return sorted([sorted(list(edge)) for edge in matching]), memory
         except Exception:
             return baseline_match(state), memory
 

@@ -11,10 +11,15 @@ import copy
 import json
 import sys
 import threading
+import time
 from kit import HARD, SOFT, baseline_match, eligibility
 from misfits import asks, match
 
-SOFT_LIMIT = 6.0                 # seconds for choose(); the hard limit is 10 s per call
+# Time budget. The hard limit is 10 s per call INCLUDING container start-up (~2 s measured in
+# Rishi's container check), so choose() gets 3 s, and the greedy fallback only runs if the call
+# is still under FALLBACK_DEADLINE; otherwise we return no pairs (always valid, costs one day).
+SOFT_LIMIT = 3.0                 # seconds for choose()
+FALLBACK_DEADLINE = 4.5          # seconds since decide() started; past this, skip the greedy fallback
 MEMORY_LIMIT = 800 * 1024        # bytes
 
 PRESETS = {
@@ -37,6 +42,10 @@ PRESETS = {
     'full-soft': {'ask_order': 'partners', 'soft_asks': False, 'match': 'maxcard_quality'},
     'full-maxcard': {'ask_order': 'partners', 'soft_asks': True, 'match': 'greedy'},
     'full-quality': {'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard'},
+    # Bayesian additions (16 Oct), each on top of full; tune strengths with compare/suite '@' overrides
+    'full_person': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, person_weight=4.0),
+    'full_learn': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, learn_fit=1),
+    'full_slot': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, slot_price=1.0),
 }
 # Day 3 (16 Oct): full = partners ask order + agreed soft asks + max pairs with quality tie-break.
 # +0.0084 [+0.002, +0.015] expected MSMI/100 vs greedy on 201-230; ties full_resolved at 1/2.7 the ask cost.
@@ -139,6 +148,7 @@ def pick_config(mode, variant):
 
 
 def decide(request, mode='greedy', variant=None):
+    started = time.monotonic()
     phase = request.get('phase')
     state = request.get('state') or {}
     memory = fresh_memory(request.get('memory'))
@@ -166,6 +176,9 @@ def decide(request, mode='greedy', variant=None):
             fb_mem = {}
         if phase == 'ask':
             return {'asks': [], 'memory': fb_mem}
+        if time.monotonic() - started > FALLBACK_DEADLINE:
+            log('no time left for the greedy fallback; returning no pairs')
+            return {'pairs': [], 'memory': fb_mem}
         try:
             return {'pairs': valid_pairs(state, baseline_match(state)), 'memory': fb_mem}
         except Exception as e2:  # noqa: BLE001

@@ -1,1 +1,2 @@
-networkx==3.4.2  # BSD-3-Clause
+# No third-party packages. Maximum-weight matching is vendored from NetworkX 3.6.1
+# (BSD-3-Clause) in misfits/blossom.py, so each call skips the ~1 s networkx import.

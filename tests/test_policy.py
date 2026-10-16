@@ -1,5 +1,6 @@
 """Fuzz + validity tests for the policy safety shell. Run: python -m unittest -v"""
 import copy
+import importlib.util
 import json
 import sys
 import time
@@ -9,7 +10,7 @@ from unittest import mock
 import policy
 from evaluate import invoke, validate_response
 from kit import HARD, SOFT, Simulator, eligibility, generate
-from misfits import asks, match
+from misfits import asks, blossom, match
 
 PRESETS = sorted(policy.PRESETS)
 
@@ -153,6 +154,34 @@ class PolicyTests(unittest.TestCase):
             r = policy.decide({'phase': 'match', 'state': self.big, 'memory': None})
             self.assertLess(time.perf_counter() - t0, 1.5)
             check(self, self.big, r, 'match')
+
+    def test_no_time_left_returns_no_pairs(self):
+        def boom(*_):
+            raise RuntimeError('boom')
+        with mock.patch.object(policy, 'FALLBACK_DEADLINE', -1), mock.patch.object(match, 'choose', boom):
+            r = policy.decide({'phase': 'match', 'state': self.big, 'memory': None})
+            self.assertEqual(r['pairs'], [])
+            check(self, self.big, r, 'match')
+
+    @unittest.skipUnless(importlib.util.find_spec('networkx'), 'networkx not installed')
+    def test_vendored_blossom_matches_networkx(self):
+        import random
+        import networkx as nx
+        r = random.Random(3)
+        for _ in range(300):
+            n, p = r.randint(0, 30), r.choice([.05, .15, .4])
+            G, H = nx.Graph(), blossom.Graph()
+            for i in range(n):
+                G.add_node(i)
+                H.add_node(i)
+            for i in range(n):
+                for j in range(i + 1, n):
+                    if r.random() < p:
+                        w = 1000 + r.choice([-1.5, 0, 1.5, 3, 4.5])
+                        G.add_edge(i, j, weight=w)
+                        H.add_edge(i, j, weight=w)
+            self.assertEqual(sorted(sorted(e) for e in nx.max_weight_matching(G, maxcardinality=True)),
+                             sorted(sorted(e) for e in blossom.max_weight_matching(H, maxcardinality=True)))
 
     def test_deterministic(self):
         for preset in PRESETS:
