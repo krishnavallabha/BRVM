@@ -13,7 +13,7 @@
 ![Deterministic](https://img.shields.io/badge/randomness-none%20(deterministic)-6f42c1)
 ![Data](https://img.shields.io/badge/data-100%25%20synthetic-lightgrey)
 
-**[Technical report](REPORT.md)** · **[Lab notebook](FINDINGS.md)** · **[Match-phase report](report/match.md)** · **[Round 1 proposal (BRVM)](docs/BRVM_round1_proposal.md)**
+**[Paper (PDF)](paper/paper.pdf)** · **[Technical report](REPORT.md)** · **[Lab notebook](FINDINGS.md)** · **[Ask-phase report](report/asks.md)** · **[Match-phase report](report/match.md)** · **[Round 1 proposal (BRVM)](docs/BRVM_round1_proposal.md)**
 
 </div>
 
@@ -28,7 +28,7 @@
 | Simple core · `full` | +0.0092 (+2.4%) | [+0.0011, +0.0174] | 301–340 × 6 families |
 | No clarification · `no_asks` | −0.2732 (−71%) | [−0.290, −0.257] | 301–340 |
 
-- **Valid everywhere.** 0 invalid episodes across thousands of runs: the official subprocess protocol (18/18 on 101–103, 0.46 s per call) and the container.
+- **Valid everywhere.** 0 invalid episodes across thousands of runs: the official subprocess protocol (18/18 on 101–103, 0.46 s per call) and the final container check (6/6 valid, 0.95 s median per call, actions identical to the local run).
 - **Low-noise yardstick.** Comparisons use exact *expected* MSMI from paired worlds. It was validated against realised outcomes on 360 episodes and is about 10× less noisy than realised scores.
 - **Honest ceiling.** A matcher that knew every true probability would gain only about +7% over greedy. We capture well over a third of that.
 - **Fair waits.** Served shares are flat across responsiveness (33.7% / 34.3% / 33.6%), and the slowest group waits *less* than under greedy (p90 17 vs 20 days).
@@ -78,6 +78,7 @@ The policy reads **only the request JSON**. It never imports `analysis/`, simula
 | What makes the matcher work? | **Using observed soft-field agreement.** Unit-weight maximum matching loses the whole gain (−0.0082). | REPORT §5.1 |
 | Does waiting for a better match help? (Q1) | **No.** Simple reservation and our own sampled-future prices never beat λ = 0, even on dense graphs and unseen arrival mixtures. | REPORT §5.5 |
 | Does it survive changing conditions? (Q2) | **Yes.** +0.0065 overall, +0.0123 when conditions switch mid-episode, with no family detection. | REPORT §6 |
+| Can complementary questions defeat an independent-item planner? (Q3a) | **Yes:** 22% of feasible pairs (43% in cold start) need *both* people asked, and asking either alone is worth 0. Our partner-count ordering still asks both, 2 days sooner than list order. | report/asks.md §4 |
 | Do response penalties leave people waiting? (Q3b) | **No.** Shares stay flat, and the slowest group's p90 wait improves. | REPORT §6 |
 | Are the models calibrated? | Monotone with positive Brier skill. The fit model gains +1.7% skill in the shifted-weights family. | REPORT §5.4 |
 
@@ -122,6 +123,7 @@ python analysis/suite.py     --presets greedy,full,full_person_learn --refs full
 python analysis/yardstick.py --preset greedy --seeds 201-260                      # expected vs realised validation
 python analysis/headroom2.py --presets greedy,full --seeds 201-215 --output results/headroom2_201_215.json
 python analysis/calibration.py --preset full --seeds 201-215 --output results/calibration_201_215.json
+python analysis/q3a.py --presets greedy,full_person_learn --seeds 201-215 --output results/q3a_complementary.json
 python analysis/q3b.py results/confirmation_341_380.json --presets greedy,full,full_person_learn --output results/q3b_waiting_341_380.json
 ```
 
@@ -152,7 +154,7 @@ World variants for Q1 and Q2 (dense graphs, sparse + delayed, a switch on day 30
 | Reproducing the published baseline numbers only | 101–103 |
 | **Inference random seed** | **None.** The policy is fully deterministic and uses no random numbers (the kit's `random` baseline seeds `random.Random(17 + day)`) |
 
-No seed group overlaps with another. Private assessment seeds are outside all of the above ranges.
+No seed group overlaps with another. The organisers' private assessment seeds are not known to us, and none of our tuning depends on them.
 
 <details>
 <summary><b>Repository layout</b></summary>
@@ -167,7 +169,9 @@ misfits/
 tests/test_policy.py    fuzz and validity tests for the shell and every preset
 analysis/               evaluation-only tools: expected MSMI, paired suites, worlds, calibration
 results/                machine-readable results (force-added; results/ is git-ignored by the kit)
-report/match.md         match-phase write-up (Siddharth)
+paper/                  research-paper version of the report (paper.tex, paper.pdf, figures, make_figures.py)
+report/asks.md          ask-phase write-up incl. Q3a (Rishi)
+report/match.md         match-phase write-up incl. Q1, Q3b (Siddharth)
 REPORT.md               technical report: approach, experiments, limitations, calibration
 FINDINGS.md             lab notebook: all numbered experiments and intermediate results
 CHANGELOG.md            kit release history

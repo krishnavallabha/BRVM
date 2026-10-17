@@ -14,7 +14,7 @@ Every number below comes from a committed JSON file in `results/`, and the comma
 3. **What we ship (`full_person_learn`):** partner-count question order, cheap goal and pace questions, and maximum pairs whose tie-breaks use observed soft-field fit, a hierarchical Bayesian model of each person's responsiveness and acceptance, and an online-learned fit model.
    - The simple core (`full`) beats greedy by **+0.0092 [+0.0011, +0.0174]** on reserved seeds 301–340 and by +0.0073 [+0.0009, +0.0138] on fresh seeds 341–380.
    - The Bayesian layer adds **+0.0041 [+0.0012, +0.0071]** on 341–380, for **+0.0115 [+0.0044, +0.0186] over greedy (+3.0%)**, with no family clearly worse.
-   - It is valid in every episode we ran, through the real protocol (0.46 s per call).
+   - It is valid in every episode we ran: the real subprocess protocol (0.46 s per call) and the **final container check (6/6 valid, 0.95 s median per call, actions identical to the local run)**.
 4. **Honest answers to the reviewer.** Q1: waiting, whether simple reservation or our own sampled-future prices, never measurably helps. Q2: the gain survives overlapping and switching conditions without recognising families. Q3b: no disparity by responsiveness. Calibration of the observable models is reported.
 5. **Bayesian layer (Round 1 BRVM, revisited).** Person-level Beta-Binomial models and an online fit model are calibrated and adapt in the `shift` family. After two calibration fixes their matching gain was confirmed on fresh seeds 341–380, and they ship. Sampled-future slot prices were tested and dropped.
 
@@ -92,6 +92,35 @@ File: `results/confirmation_301_340.json`, run in-process. Expected MSMI / 100, 
 | **full** | **0.3933** | 0.4354 | **+0.0092 [+0.0011, +0.0174]** | 76.7 (46.9) | 0.349 | 209 |
 
 No family's CI lies entirely below 0, and `delayed` is clearly positive (+0.017). This matches the dev seeds (+0.0084 on 201–230).
+
+### 4.3 Scenario-level outcomes (all six families)
+
+**Expected MSMI / 100 per family, fresh seeds 341–380** (40 seeds per family; `results/confirmation_341_380.json`):
+
+| Family | greedy | full | **full_person_learn (shipped)** | shipped vs greedy [95% CI] |
+|---|---|---|---|---|
+| development (standard) | 0.4686 | 0.4738 | **0.4817** | +0.0131 [−0.0006, +0.0269] |
+| sparse geography | 0.1165 | 0.1164 | **0.1159** | −0.0006 [−0.0018, +0.0006] |
+| cold start | 0.3805 | 0.3973 | **0.3997** | **+0.0193 [+0.0062, +0.0324]** |
+| delayed dates | 0.4407 | 0.4501 | **0.4555** | **+0.0148 [+0.0046, +0.0251]** |
+| shifted outcome weights | 0.4167 | 0.4193 | **0.4240** | +0.0073 [−0.0044, +0.0189] |
+| changing response conditions (drift) | 0.4443 | 0.4544 | **0.4593** | **+0.0150 [+0.0024, +0.0276]** |
+| **equal-weight mean** | 0.3779 | 0.3852 | **0.3894** | **+0.0115 [+0.0044, +0.0186]** |
+
+The shipped policy is clearly better in three families and positive in two more. In `sparse` there is almost nothing to choose between (about 22 introductions per episode), so every policy ties.
+
+**Realised MSMI / 100 and coverage per family, official evaluator, seeds 101–103** (3 seeds per family, so these are indicative only; `results/final*.json`):
+
+| Family | greedy | random | no_asks | **shipped** |
+|---|---|---|---|---|
+| development | 0.500 / 0.432 | 0.333 / 0.440 | 0.167 / 0.183 | **0.333 / 0.435** |
+| sparse | 0.167 / 0.145 | 0.167 / 0.145 | 0.000 / 0.043 | **0.000 / 0.145** |
+| cold_start | 0.167 / 0.360 | 0.167 / 0.363 | 0.000 / 0.080 | **0.000 / 0.368** |
+| delayed | 0.500 / 0.430 | 0.167 / 0.438 | 0.333 / 0.183 | **0.667 / 0.437** |
+| shift | 0.500 / 0.432 | 0.500 / 0.433 | 0.167 / 0.183 | **0.500 / 0.437** |
+| drift | 0.500 / 0.432 | 0.333 / 0.440 | 0.167 / 0.183 | **0.333 / 0.435** |
+
+Each cell is MSMI / 100 / coverage. Every MSMI cell is 0, 1, 2, 3 or 4 events over 3 episodes, so family-level realised scores at n = 3 are dominated by chance. The shipped policy has the highest or tied-highest coverage in five of six families.
 
 **Yardstick validity** (`results/yardstick_validation.json`, greedy, 360 episodes): realised 241 against 265.7 expected MSMI (ratio 0.91, z = −1.53). Every family's CI contains 0.
 
@@ -184,7 +213,8 @@ All 240 episodes per policy are valid, introductions are unchanged (74.2–74.5 
 
 ### 5.6 Runtime and robustness
 
-- An early container run of the Day 3 build timed out in 2 of 6 episodes (3.2–4.2 s per call; `results/container_check.json`). A re-run on the same machine was valid at 1.07 s per call (`results/day3_container_check.json`).
+- An early container run of the Day 3 build (networkx era) timed out in 2 of 6 episodes (3.2–4.2 s per call). A re-run on the same machine was valid at 1.07 s per call (`results/day3_container_check.json`).
+- **Final container check of the shipped build** (`results/container_check.json`, Docker, seed 101 × 6 families): **6/6 valid, median 0.95 s and max 1.07 s per call**. Every episode's `action_sha256` is identical to the local official run of `full_person_learn` (`results/final.json`), so the container runs exactly the evaluated policy.
 - We removed the main cost (the per-call `networkx` import, vendoring instead), cut the soft limit from 6 s to 3 s, and made the match fallback deadline-aware: past 4.5 s it returns no pairs rather than computing greedy.
 - Local subprocess timing on the previously failing families: median 0.42–0.65 s, worst 0.95 s per call. In-process worst case over 240 confirmation episodes: under 1.8 s under full CPU load.
 - **Tests:** 36 (`tests/test_policy.py` plus kit tests). They cover empty pools, nobody available, all fields unknown or declined, every pair already introduced, the largest request, malformed or oversized memory, choosers that raise, return garbage, return NaN memory or hang, the no-time-left fallback, determinism, and vendored-matcher equivalence. A mutation check (validators disabled) makes 30 sub-tests fail.
@@ -199,7 +229,11 @@ All 240 episodes per policy are valid, introductions are unchanged (74.2–74.5 
   - overall: **+0.0065 [+0.002, +0.011]**.
 
   The online fit model additionally adapts its weights in `shift` (§5.4).
-- **Q3a (complementary questions):** Rishi; see `report/asks.md` and `results/q3a_complementary.json`.
+- **Q3a (can complementary questions defeat an independent-item planner?)** **Yes, in principle; our planner avoids the trap.** Details in `report/asks.md` §4 and `results/q3a_complementary.json` (seeds 201–215 × 6):
+  - **Exact test:** in the 90 initial pools there are **953 truly compatible pairs blocked by *both* members' missing hard fields**. Asking only one half makes **0** of them feasible; asking both makes all 953 feasible. An independent-item planner that values a question by the pairs it unlocks alone scores each half at **exactly 0**, so it would never ask them.
+  - **Scale:** such pairs are **22% of all feasible pairs (43% in `cold_start`)**.
+  - **Our ordering:** the partner-count order counts partners who are *not yet infeasible* (unknown fields don't block), so each half gets positive value. Under both greedy and the shipped policy, **100%** of these pairs end up with both people asked.
+  - **Speed:** the shipped ordering unlocks them sooner. The wait from co-presence to unlock has median **4 days vs 6** for greedy (p90 12 vs 13), and same-day completion rises from 5% to 8%.
 - **Q3b (who waits)** (`results/q3b_waiting.json`, seeds 301–340):
   - median wait 4 → 3 days with `full`; p90 16 in both;
   - never-served is driven by constraints: 53% of never-served members declined a hard field;

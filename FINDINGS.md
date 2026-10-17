@@ -380,4 +380,5 @@ All on development seeds unless stated. Details and tables are in REPORT.md §5.
   **`DEFAULT_CONFIG = full_person_learn` (team decision, 17 Oct).**
 - **Official evaluator, new default**, 101–103 × 6 (`final.json`): 18/18 valid, score 0.3056, coverage 0.3761, mutual acceptances / 100 5.83, ask cost 219.2, **0.46 s per call** (max episode 0.51 s). Expected MSMI ties greedy on these 3 seeds (0.3727 vs 0.3728; `expected_101_103_final.json`). The previous `full` run is `final_full.json`.
 - **Q3b for the shipped policy** (`q3b_waiting_341_380.json`): served shares flat across true response-rate terciles (33.7% / 34.3% / 33.6%). Members with > 50% observed no-response wait median / p90 5 / 17 days (greedy 6 / 20). No disproportionate waiting from the response penalty.
-- **Second pin:** pending Rishi's container check of this build.
+- **Final container check** (Rishi, 17 Oct, `results/container_check.json`, build `bcfacd0`, code logic identical to `228e2a9`): Docker, seed 101 × 6 families, **6/6 valid**, median **0.95 s** and max **1.07 s** per call. `action_sha256` is identical to `results/final.json` in every episode. Rishi's later commits changed comments and README only (code logic verified identical by AST comparison).
+- **Pins:** first `ae57f84`. Final: the commit that adds this note (record its SHA in the submission issue).

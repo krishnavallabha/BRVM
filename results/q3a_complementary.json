@@ -1,0 +1,93 @@
+{
+ "part_a": {
+  "compatible_blocked_by_both_pairs": 953,
+  "feasible_after_asking_one_half_only": 0,
+  "feasible_after_asking_both": 953,
+  "independent_item_value_per_half": 0.0,
+  "joint_value": 1.0
+ },
+ "part_b": {
+  "greedy": {
+   "episodes": 90,
+   "feasible_pairs": 8287,
+   "blocked_by_both": 1801,
+   "asked_both": 1801,
+   "unlock_day_median": 11,
+   "unlock_day_p90": 18,
+   "ask_lag_median": 5,
+   "ask_lag_p90": 14,
+   "same_day_share": 0.05274847307051638,
+   "wait_from_copresence_median": 6,
+   "wait_from_copresence_p90": 13,
+   "families": {
+    "development": {
+     "blocked_share_of_feasible": 0.17022574740695545,
+     "asked_both_share": 1.0
+    },
+    "sparse": {
+     "blocked_share_of_feasible": 0.23582089552238805,
+     "asked_both_share": 1.0
+    },
+    "cold_start": {
+     "blocked_share_of_feasible": 0.4340974212034384,
+     "asked_both_share": 1.0
+    },
+    "delayed": {
+     "blocked_share_of_feasible": 0.17022574740695545,
+     "asked_both_share": 1.0
+    },
+    "shift": {
+     "blocked_share_of_feasible": 0.17022574740695545,
+     "asked_both_share": 1.0
+    },
+    "drift": {
+     "blocked_share_of_feasible": 0.17022574740695545,
+     "asked_both_share": 1.0
+    }
+   },
+   "blocked_share_of_feasible": 0.2173283456015446,
+   "asked_both_share": 1.0
+  },
+  "full_person_learn": {
+   "episodes": 90,
+   "feasible_pairs": 8287,
+   "blocked_by_both": 1801,
+   "asked_both": 1801,
+   "unlock_day_median": 11,
+   "unlock_day_p90": 17,
+   "ask_lag_median": 5,
+   "ask_lag_p90": 13,
+   "same_day_share": 0.07884508606329817,
+   "wait_from_copresence_median": 4,
+   "wait_from_copresence_p90": 12,
+   "families": {
+    "development": {
+     "blocked_share_of_feasible": 0.17022574740695545,
+     "asked_both_share": 1.0
+    },
+    "sparse": {
+     "blocked_share_of_feasible": 0.23582089552238805,
+     "asked_both_share": 1.0
+    },
+    "cold_start": {
+     "blocked_share_of_feasible": 0.4340974212034384,
+     "asked_both_share": 1.0
+    },
+    "delayed": {
+     "blocked_share_of_feasible": 0.17022574740695545,
+     "asked_both_share": 1.0
+    },
+    "shift": {
+     "blocked_share_of_feasible": 0.17022574740695545,
+     "asked_both_share": 1.0
+    },
+    "drift": {
+     "blocked_share_of_feasible": 0.17022574740695545,
+     "asked_both_share": 1.0
+    }
+   },
+   "blocked_share_of_feasible": 0.2173283456015446,
+   "asked_both_share": 1.0
+  }
+ }
+}
