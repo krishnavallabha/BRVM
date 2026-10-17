@@ -341,3 +341,43 @@ python evaluate.py --image sequential-policy:misfits --seeds 101 --variants all 
 docker run --rm --entrypoint python sequential-policy:misfits -c "import networkx; print(networkx.__version__)"
 ```
 Then `git add -f results/day3_container_check.json && git add FINDINGS.md` and message the team to pin the SHA.
+
+## 15. Runtime hardening after the container timeout (Krishna, 16 Oct)
+
+- `results/container_check.json` (Day 3 build, Rishi's machine): 2 of 6 episodes **timed out** (`shift`, `drift`), with 3.2–4.2 s per call on the rest. A later run of the same code was valid at 1.07 s (§14.2), so container speed varies with the host.
+- Profile: policy compute is about 0.3 s per call. **`import networkx` costs about 0.93 s per call** (the process restarts every call).
+- **Fix 1:** `misfits/blossom.py` vendors `max_weight_matching` from NetworkX 3.6.1 (BSD-3, generated from the installed source). It is identical to networkx on 6,000 random graphs (`tests/test_policy.py::test_vendored_blossom_matches_networkx`), and full-policy actions are byte-identical on 4 episodes. `requirements.txt` is now empty. `import policy`: 1.15 s → 0.16 s.
+- **Fix 2:** `SOFT_LIMIT` 6 s → 3 s, plus `FALLBACK_DEADLINE` 4.5 s (past it the match fallback returns no pairs instead of computing greedy). The in-matcher "over 3 s → recompute greedy" branch is removed.
+- Local subprocess timing on the failing families: **median 0.42–0.65 s, max 0.95 s** per call (was max 2.15 s).
+
+## 16. Bayesian layer: headroom, models, calibration, tests (Krishna, 16–17 Oct)
+
+All on development seeds unless stated. Details and tables are in REPORT.md §5.2–§5.5.
+
+- **Headroom** (`headroom2_201_215.json`), per 100 members, `full`: used 0.372; unused feasible 0.101 (0.032 with an exiting member, 0.069 both present); drift timing loss 0.004. Variance of log p explained: response rates 24%, acceptance and second-meeting tendencies 27%, goal match 36% (11% in `shift`).
+- **Models** (`misfits/bayes.py`):
+  - person model (hierarchical empirical-Bayes Beta–Binomial, resolved feedback only);
+  - fit model (Bayesian logistic regression with prior = q / 4);
+  - slot prices (remaining + sampled-future partners / remaining slots).
+- **Two calibration fixes:**
+  - count only resolved opportunities (open introductions inflated response rates);
+  - average the prior strength over a grid by marginal likelihood (method of moments, and later the single best strength, were unstable with about 2 observations per member).
+- **Calibration** (`calibration_201_215.json`, about 13k predictions): Brier skill response +0.7%, yes +0.55%, fit +0.15% overall and **+1.7% in `shift`**.
+- **Dev sweep** (`bayes_dev_201_230.json`, `bayes_person_201_230.json`; vs `full`):
+  - person w = 2: +0.0020 [−0.0023, +0.0063];
+  - learned fit: +0.0012 [−0.0016, +0.0039];
+  - slot λ = −1: +0.0026 [−0.0016, +0.0068]; λ = +1: −0.0026.
+
+  All CIs contain 0.
+- **Slot prices on dense worlds and unseen arrival mixtures** (`slot_dense_mixed_201_260.json`): λ = −1 gives −0.0029 [−0.012, +0.006]; simple reservation k = 3 gives +0.0034 [−0.004, +0.011]. **Slot pricing dropped.**
+- **cold_start diagnosis** (`coldstart_diag_201_260.json`): a meaningless deterministic tie-break also loses −0.0067 [−0.0132, −0.0002] in `cold_start` (−0.0063 on 201–230, −0.0071 on fresh 231–260; about 1 fewer introduction per episode). The `cold_start` losses of the new terms are therefore a tie-breaking effect, not a modelling failure. The person model's loss on fresh seeds is −0.0013.
+- **Final confirmation, seeds 341–380 (first use)** (`confirmation_341_380.json`, 240 episodes per policy, 0 invalid):
+  - full_person +0.0036 [+0.0011, +0.0061] vs full;
+  - full_learn +0.0020 [−0.0003, +0.0042];
+  - **full_person_learn +0.0041 [+0.0012, +0.0071] vs full and +0.0115 [+0.0044, +0.0186] vs greedy**, no family clearly worse;
+  - full vs greedy +0.0073 [+0.0009, +0.0138] (third confirmation).
+
+  **`DEFAULT_CONFIG = full_person_learn` (team decision, 17 Oct).**
+- **Official evaluator, new default**, 101–103 × 6 (`final.json`): 18/18 valid, score 0.3056, coverage 0.3761, mutual acceptances / 100 5.83, ask cost 219.2, **0.46 s per call** (max episode 0.51 s). Expected MSMI ties greedy on these 3 seeds (0.3727 vs 0.3728; `expected_101_103_final.json`). The previous `full` run is `final_full.json`.
+- **Q3b for the shipped policy** (`q3b_waiting_341_380.json`): served shares flat across true response-rate terciles (33.7% / 34.3% / 33.6%). Members with > 50% observed no-response wait median / p90 5 / 17 days (greedy 6 / 20). No disproportionate waiting from the response penalty.
+- **Second pin:** pending Rishi's container check of this build.

@@ -67,7 +67,12 @@ Files: `results/q1_dense_201_260.json`, `results/q1_standard_201_230.json`. k wa
 - the horizon is 60 days, and outcomes are dominated by individual tendencies and response rates rather than pair fit;
 - so a skipped pair is a lost chance that later better pairs rarely make up for.
 
-The sampled-future LP-dual variant was not attempted. The headroom bound (a perfect-information myopic matcher gains only about +7% over greedy) and these results suggest little to gain. This is a negative result, reported as such.
+**Sampled-future prices (tested 17 Oct).** Instead of LP duals we priced each member's time directly (`misfits/bayes.py: slot_pressure`): remaining feasible partners, plus sampled future partners (recent arrival rate × days left × the share of the observed pool feasible with the member, i.e. the sample average over resampled observed profiles), divided by remaining introduction slots (days left / 8). This enters the edge weight as `λ · (price_i + price_j)`:
+
+- **Standard worlds** (201–230 × 6): λ = −1 gives +0.0026 [−0.0016, +0.0068] and λ = −2 gives +0.0020; λ = +1 gives −0.0026 and λ = +2 gives −0.0033. Steering *away* from scarce members (the original BRVM sign) beats prioritising them, but neither is distinguishable from 0.
+- **Dense worlds + unseen arrival mixture** (201–260), where lookahead should matter most: λ = −1 gives −0.0029 [−0.0117, +0.0059], while simple reservation (k = 3) gives +0.0034 [−0.0040, +0.0107].
+
+Sampled-future prices also double match-call time. They do not beat λ = 0 or simple reservation, so they are not shipped. Together with the headroom bound (a perfect-information myopic matcher gains only about +7% over greedy), the lesson is that the opportunity cost of using someone now is real but small, and never larger than the cost of leaving a feasible pair idle. This is a negative result for our own Round 1 idea, reported as such. Files: `results/bayes_dev_201_230.json`, `results/slot_dense_mixed_201_260.json`.
 
 ## 5. Q3b: who waits, and who is never served
 
@@ -98,7 +103,13 @@ The sampled-future LP-dual variant was not attempted. The headroom bound (a perf
 - **Who is never served is decided by constraints, not by the policy.** About half (53%) of never-served members declined a hard field (permanently blocked). The rest are mostly members with no reciprocally feasible partner who is available at the right time. Both policies serve the same people within 0.2 percentage points; `full` serves about 0.25 more members per episode.
 - **`full` shortens the typical wait by about one day** (median 4 → 3) through its partner-count ask order, which unlocks connectable members first. The 90th percentile is unchanged at about 16 days: the slow tail is late arrivals and members whose only partners are busy.
 - **No disparity by responsiveness.** Served shares and waits are flat across true response-rate terciles, for both policies. Neither policy uses responsiveness, so unresponsive members are not deprioritised, and responsive ones are not favoured either.
-- **In the observed view, members with > 50% no-responses wait longest at the p90** (18–19 days). This is a timing artefact, not discrimination: no-responses are revealed only at the 7-day deadline, and people with few introductions show extreme rates. A policy that down-weighted observed non-responders (Siddharth's optional Day 2 idea, not implemented) could raise MSMI. It would make this tail longer and should be judged against that fairness cost.
+- **In the observed view, members with > 50% no-responses wait longest at the p90** (18–19 days). This is a timing artefact, not discrimination: no-responses are revealed only at the 7-day deadline, and people with few introductions show extreme rates. We expected a policy that down-weights observed non-responders (Siddharth's optional Day 2 idea) to lengthen this tail.
+
+**Measured on the shipped policy** (`full_person_learn`, whose Bayesian person model does exactly this; fresh seeds 341–380, `results/q3b_waiting_341_380.json`), it did not:
+- Served shares stay flat across true response-rate terciles: 33.7% / 34.3% / 33.6%, against greedy 33.5% / 34.2% / 33.4%.
+- Members with > 50% observed no-responses wait median / p90 5 / 17 days, against 6 / 20 under greedy and 4 / 18 under `full`.
+
+The penalty only changes ties between equally large matchings. It reorders who goes first on a given day, but never removes anyone from the graph. Meanwhile it gains +0.0036 [+0.0011, +0.0061] expected MSMI per 100 over `full` (REPORT.md §5.4).
 
 ## 6. Limitations
 

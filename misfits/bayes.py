@@ -6,9 +6,9 @@ call: no memory, deterministic, pure standard library.
 1. Person model (empirical-Bayes Beta-Binomial). Per member, from their own feedback:
      response: responded vs no_response, to introductions AND second-meeting questions
      acceptance: yes vs no among their introduction responses
-   Each Beta prior is centred on the pool rate with a strength estimated by method of moments
-   (binomial noise removed), clipped to [PRIOR_MIN, PRIOR_MAX]. Few observations per person, so
-   posteriors stay near the prior; shrinkage is what stops the model overreacting.
+   Each Beta prior is centred on the pool rate; its strength is averaged over a grid weighted by
+   the beta-binomial marginal likelihood (hierarchical empirical Bayes). Few observations per
+   person, so posteriors stay near the prior; shrinkage is what stops the model overreacting.
    person_score(i) = log E[r_i^2] + log E[acc_i], relative to the prior member (0 = no evidence).
 
 2. Fit model (Bayesian logistic regression, MAP by Newton): P(i says yes to j | i responded) on
@@ -26,30 +26,43 @@ from kit import eligibility
 
 SOFT4 = ('relationship_goal', 'relationship_pace', 'lifestyle', 'conversations')
 Q_SCALE = 4.0                     # pair_quality units per logit unit of acceptance
-PRIOR_MIN, PRIOR_MAX, PRIOR_DEFAULT = 8.0, 50.0, 10.0  # floor 8: MoM underestimates strength with ~2 obs/member (dev seeds)
+PRIOR_GRID = (2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128, 200, 400)  # candidate Beta prior strengths
+PRIOR_DEFAULT = 10.0              # used until at least 10 members have resolved feedback
 FIT_PRIOR_SD = 0.5                # sd of the Gaussian prior on each fit weight (logit units)
 BUSY_DAYS = 8                     # an introduction blocks both people for 8 days
 
 
 # ---------------------------------------------------------------- person model
 def _beta_prior(counts):
-    """counts: [(successes, trials)] -> (alpha, beta). Method of moments with binomial noise removed."""
+    """counts: [(successes, trials)] -> [(alpha, beta, weight)], hierarchical empirical Bayes.
+
+    The mean is the pooled rate. The strength k (pseudo-observations) is not picked but averaged:
+    each k in PRIOR_GRID (uniform prior on log k) is weighted by its beta-binomial marginal
+    likelihood over all members' counts. With ~2 observations per member that likelihood is flat
+    and a single best k jumps between extremes, so averaging is what keeps shrinkage stable."""
     obs = [(s, n) for s, n in counts if n > 0]
     tot = sum(n for _, n in obs)
     if tot == 0:
         return None
     m = min(max(sum(s for s, _ in obs) / tot, .02), .98)
-    k = PRIOR_DEFAULT
-    if len(obs) >= 10:
-        rates = [s / n for s, n in obs]
-        mean_r = sum(rates) / len(rates)
-        var_obs = sum((x - mean_r) ** 2 for x in rates) / (len(rates) - 1)
-        noise = sum(m * (1 - m) / n for _, n in obs) / len(obs)
-        var_true = var_obs - noise
-        if var_true > 1e-6:
-            k = m * (1 - m) / var_true - 1
-    k = min(max(k, PRIOR_MIN), PRIOR_MAX)
-    return m * k, (1 - m) * k
+    if len(obs) < 10:
+        return [(m * PRIOR_DEFAULT, (1 - m) * PRIOR_DEFAULT, 1.0)]
+
+    def log_evidence(k):
+        a, b = m * k, (1 - m) * k
+        lb = math.lgamma(a) + math.lgamma(b) - math.lgamma(a + b)
+        return sum(math.lgamma(s + a) + math.lgamma(n - s + b) - math.lgamma(n + a + b) - lb for s, n in obs)
+    le = [log_evidence(k) for k in PRIOR_GRID]
+    top = max(le)
+    w = [math.exp(x - top) for x in le]
+    z = sum(w)
+    return [(m * k, (1 - m) * k, wi / z) for k, wi in zip(PRIOR_GRID, w)]
+
+
+def _post_mean(mix, s, n, f):
+    """Posterior mean of f(alpha, beta) averaged over the prior-strength mixture (weights unchanged
+    by one member's data: a member's own counts barely move the pool evidence)."""
+    return sum(w * f(a + s, b + n - s) for a, b, w in mix)
 
 
 def person_counts(state):
@@ -87,21 +100,21 @@ def person_model(state):
     """-> (score dict member_id -> person_score, posterior dict for calibration)."""
     c = person_counts(state)
     pr = _beta_prior([(x[0], x[1]) for x in c.values()])
-    pa = _beta_prior([(x[2], x[3]) for x in c.values()])
+    pa = _beta_prior([(x[2], x[3]) for x in c.values()]) or [(1.0, 1.0, 1.0)]
     if pr is None:
         return {}, {}
-    pa = pa or (1.0, 1.0)
 
     def e_r2(a, b):
         return a * (a + 1) / ((a + b) * (a + b + 1))
-    base = math.log(e_r2(*pr)) + math.log(pa[0] / (pa[0] + pa[1]))
+
+    def mean(a, b):
+        return a / (a + b)
+    base = math.log(_post_mean(pr, 0, 0, e_r2)) + math.log(_post_mean(pa, 0, 0, mean))
     score, post = {}, {}
     for i, (s, n, y, ny) in c.items():
-        ar, br = pr[0] + s, pr[1] + n - s
-        aa, ba = pa[0] + y, pa[1] + ny - y
-        score[i] = math.log(e_r2(ar, br)) + math.log(aa / (aa + ba)) - base
-        post[i] = {'p_respond': ar / (ar + br), 'p_yes': aa / (aa + ba)}
-    post['_prior'] = {'p_respond': pr[0] / sum(pr), 'p_yes': pa[0] / sum(pa)}
+        score[i] = math.log(_post_mean(pr, s, n, e_r2)) + math.log(_post_mean(pa, y, ny, mean)) - base
+        post[i] = {'p_respond': _post_mean(pr, s, n, mean), 'p_yes': _post_mean(pa, y, ny, mean)}
+    post['_prior'] = {'p_respond': _post_mean(pr, 0, 0, mean), 'p_yes': _post_mean(pa, 0, 0, mean)}
     return score, post
 
 

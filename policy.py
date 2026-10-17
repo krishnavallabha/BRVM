@@ -43,13 +43,16 @@ PRESETS = {
     'full-maxcard': {'ask_order': 'partners', 'soft_asks': True, 'match': 'greedy'},
     'full-quality': {'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard'},
     # Bayesian additions (16 Oct), each on top of full; tune strengths with compare/suite '@' overrides
-    'full_person': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, person_weight=4.0),
+    'full_person': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, person_weight=2.0),
+    'full_person_learn': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'},
+                              person_weight=2.0, learn_fit=1),
     'full_learn': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, learn_fit=1),
     'full_slot': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, slot_price=1.0),
 }
-# Day 3 (16 Oct): full = partners ask order + agreed soft asks + max pairs with quality tie-break.
-# +0.0084 [+0.002, +0.015] expected MSMI/100 vs greedy on 201-230; ties full_resolved at 1/2.7 the ask cost.
-DEFAULT_CONFIG = PRESETS['full']
+# Final (17 Oct): full + hierarchical person model (w=2) + online fit model.
+# Fresh seeds 341-380: +0.0041 [+0.0012, +0.0071] expected MSMI/100 vs full, +0.0115 [+0.0044, +0.0186]
+# vs greedy, no family clearly worse. full itself: +0.0092 vs greedy on 301-340.
+DEFAULT_CONFIG = PRESETS['full_person_learn']
 
 
 def log(msg):

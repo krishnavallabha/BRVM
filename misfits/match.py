@@ -1,6 +1,7 @@
 import itertools
 import random
 import statistics
+import zlib
 
 from kit import baseline_match, eligibility
 from misfits import bayes, blossom  # blossom: vendored NetworkX matching, no 1 s networkx import per call
@@ -64,6 +65,11 @@ def quality_fn(state, candidates, config):
     if ks:
         press = bayes.slot_pressure(state, candidates)
         terms.append(lambda a, b: ks * (press.get(a['member_id'], 0.0) + press.get(b['member_id'], 0.0)))
+    eps = config.get('tie_noise')
+    if eps:
+        # diagnostic: a meaningless deterministic tie-break (only separates exactly equal weights)
+        terms.append(lambda a, b: eps * (zlib.crc32('|'.join(sorted((a['member_id'], b['member_id']))).encode())
+                                         / 2 ** 32))
     if len(terms) == 1:
         return terms[0]
     return lambda a, b: max(-MAX_BONUS, min(MAX_BONUS, sum(t(a, b) for t in terms)))
