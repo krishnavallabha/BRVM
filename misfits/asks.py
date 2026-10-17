@@ -1,23 +1,23 @@
-"""Ask phase (owner: Rishi; partners ordering + agreed soft asks completed by Krishna, 15 Oct).
+"""Ask phase: question ordering and soft-field clarification.
 
 config['ask_order'] (3-unit hard bundles, at most budget // 3 per day):
-  'greedy'       kit baseline_asks order, so the greedy preset reproduces the kit exactly
+  'greedy'       kit baseline_asks order — reproduces the kit baseline exactly
   'partners'     likely partner count (pairs not yet 'infeasible' with any available member),
                  + ARRIVAL_BONUS for arrivals in the last 3 days; ties by member_id
-  'missing_hard' Rishi v1: most not_asked hard fields first
+  'missing_hard' sort by most not_asked hard fields first
   'none'         no asks at all
 
 config['soft_asks'] (1-unit asks with the budget left over):
   False / None   off
-  True           agreed design: relationship_goal, then relationship_pace, only for members
+  True           relationship_goal then relationship_pace, only for members
                  with >= 2 feasible available partners, most partners first
-  'resolved'     Rishi v1: every soft field in SOFT_PRIORITY order, for members whose hard
+  'resolved'     every soft field in SOFT_PRIORITY order, for members whose hard
                  fields are all observed/declined, most missing soft fields first
 """
 from kit import HARD, SOFT, baseline_asks, eligibility
 
-ARRIVAL_BONUS = 10     # added to a new arrival's likely-partner count; tuned on seeds 201-230
-SOFT_FIELDS = ['relationship_goal', 'relationship_pace']  # agreed design: strongest acceptance factors
+ARRIVAL_BONUS = 10     # added to a new arrival's likely-partner count
+SOFT_FIELDS = ['relationship_goal', 'relationship_pace']  # strongest acceptance factors
 
 # Soft fields in decreasing value order (matches pair_quality weights in match.py).
 SOFT_PRIORITY = [
@@ -81,7 +81,7 @@ def choose(state, memory, config):
         and not any(m['field_status'][k] == 'declined' for k in HARD)
     ]
 
-    # -- Day 1: hard-constraint bundles (3 units each) --
+    # Hard-constraint bundles (3 units each)
     if order == 'partners':
         # Likely partner count: unknown fields don't block (anything but 'infeasible'),
         # plus a bonus for members who arrived in the last 3 days.
@@ -99,20 +99,20 @@ def choose(state, memory, config):
         asks = baseline_asks(state)
     budget -= 3 * len(asks)
 
-    # -- Day 2: soft-field asks with idle budget (1 unit each) --
+    # Soft-field asks with idle budget (1 unit each)
     soft = config.get('soft_asks')
     if not soft or budget <= 0:
         return asks, memory
 
     if soft == 'resolved':
-        # Rishi v1: members whose hard fields are all observed/declined, most missing soft first,
-        # every soft field in SOFT_PRIORITY order.
+        # All soft fields in priority order; members with hard fields fully resolved,
+        # most missing soft fields first.
         candidates = [m for m in members if all(m['field_status'][k] in ('observed', 'declined') for k in HARD)]
         candidates.sort(key=_count_missing_soft, reverse=True)
         fields = SOFT_PRIORITY
     else:
-        # Agreed design: a soft answer can only change a choice when there is more than one
-        # option, so ask only members with >= 2 feasible available partners, most partners first.
+        # A soft answer can only change a choice when there is more than one option,
+        # so ask only members with >= 2 feasible available partners, most partners first.
         feasible = partner_counts()[1]
         candidates = sorted((m for m in members if feasible[m['member_id']] >= 2),
                             key=lambda m: (-feasible[m['member_id']], m['member_id']))

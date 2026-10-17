@@ -15,9 +15,9 @@ import time
 from kit import HARD, SOFT, baseline_match, eligibility
 from misfits import asks, match
 
-# Time budget. The hard limit is 10 s per call INCLUDING container start-up (~2 s measured in
-# Rishi's container check), so choose() gets 3 s, and the greedy fallback only runs if the call
-# is still under FALLBACK_DEADLINE; otherwise we return no pairs (always valid, costs one day).
+# Time budget. The hard limit is 10 s per call INCLUDING container start-up (~2 s in container),
+# so choose() gets 3 s. The greedy fallback only runs if the call is still under FALLBACK_DEADLINE;
+# otherwise we return no pairs (always valid, costs one day).
 SOFT_LIMIT = 3.0                 # seconds for choose()
 FALLBACK_DEADLINE = 4.5          # seconds since decide() started; past this, skip the greedy fallback
 MEMORY_LIMIT = 800 * 1024        # bytes
@@ -28,7 +28,7 @@ PRESETS = {
     'random': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'random'},
     'maxcard': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'maxcard'},
     'maxcard_quality': {'ask_order': 'greedy', 'soft_asks': False, 'match': 'maxcard_quality'},
-    # Rishi Day 2: maxcard_quality matching + soft-field clarification with idle budget
+    # maxcard_quality matching + soft-field clarification with idle budget
     'maxcard_quality_soft': {'ask_order': 'greedy', 'soft_asks': True, 'match': 'maxcard_quality'},
     'ask_missing_hard': {'ask_order': 'missing_hard', 'soft_asks': False, 'match': 'greedy'},
     'soft_asks': {'ask_order': 'greedy', 'soft_asks': True, 'match': 'greedy'},
@@ -37,21 +37,20 @@ PRESETS = {
     'ask_partners_soft': {'ask_order': 'partners', 'soft_asks': True, 'match': 'greedy'},
     'full': {'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'},
     'full_resolved': {'ask_order': 'partners', 'soft_asks': 'resolved', 'match': 'maxcard_quality'},
-    # Day 3 ablations: full minus one feature
+    # Ablations: full minus one feature at a time
     'full-partners': {'ask_order': 'greedy', 'soft_asks': True, 'match': 'maxcard_quality'},
     'full-soft': {'ask_order': 'partners', 'soft_asks': False, 'match': 'maxcard_quality'},
     'full-maxcard': {'ask_order': 'partners', 'soft_asks': True, 'match': 'greedy'},
     'full-quality': {'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard'},
-    # Bayesian additions (16 Oct), each on top of full; tune strengths with compare/suite '@' overrides
+    # Bayesian additions: each on top of full; tune strengths with compare/suite '@' overrides
     'full_person': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, person_weight=2.0),
     'full_person_learn': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'},
                               person_weight=2.0, learn_fit=1),
     'full_learn': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, learn_fit=1),
     'full_slot': dict({'ask_order': 'partners', 'soft_asks': True, 'match': 'maxcard_quality'}, slot_price=1.0),
 }
-# Final (17 Oct): full + hierarchical person model (w=2) + online fit model.
-# Fresh seeds 341-380: +0.0041 [+0.0012, +0.0071] expected MSMI/100 vs full, +0.0115 [+0.0044, +0.0186]
-# vs greedy, no family clearly worse. full itself: +0.0092 vs greedy on 301-340.
+# Shipped default: full + hierarchical person model (w=2) + online fit model.
+# +0.0041 [+0.0012, +0.0071] expected MSMI/100 vs full; +0.0115 [+0.0044, +0.0186] vs greedy.
 DEFAULT_CONFIG = PRESETS['full_person_learn']
 
 
