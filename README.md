@@ -1,6 +1,6 @@
 <div align="center">
 
-# 💞 The Misfits · Sequential Reciprocal Matching
+# The Misfits · Sequential Reciprocal Matching
 
 ### Who to introduce, what to ask, and when, with a valid answer on every one of 14,400 calls
 
@@ -13,13 +13,13 @@
 ![Deterministic](https://img.shields.io/badge/randomness-none%20(deterministic)-6f42c1)
 ![Data](https://img.shields.io/badge/data-100%25%20synthetic-lightgrey)
 
-**[📄 Technical report](REPORT.md)** · **[🔬 Lab notebook](FINDINGS.md)** · **[🧩 Match-phase report](report/match.md)** · **[💡 Round 1 proposal (BRVM)](docs/BRVM_round1_proposal.md)**
+**[Technical report](REPORT.md)** · **[Lab notebook](FINDINGS.md)** · **[Match-phase report](report/match.md)** · **[Round 1 proposal (BRVM)](docs/BRVM_round1_proposal.md)**
 
 </div>
 
 ---
 
-## ✨ Results at a glance
+## Results at a glance
 
 | | Expected MSMI / 100 vs greedy | 95% CI | Seeds (first use) |
 |---|---|---|---|
@@ -28,16 +28,18 @@
 | Simple core · `full` | +0.0092 (+2.4%) | [+0.0011, +0.0174] | 301–340 × 6 families |
 | No clarification · `no_asks` | −0.2732 (−71%) | [−0.290, −0.257] | 301–340 |
 
-- **✅ Valid everywhere.** 0 invalid episodes across thousands of runs: the official subprocess protocol (18/18 on 101–103, 0.46 s per call) and the container.
-- **📏 Low-noise yardstick.** Comparisons use exact *expected* MSMI from paired worlds. It was validated against realised outcomes on 360 episodes and is about 10× less noisy than realised scores.
-- **🎯 Honest ceiling.** A matcher that knew every true probability would gain only about +7% over greedy. We capture well over a third of that.
-- **⚖️ Fair waits.** Served shares are flat across responsiveness (33.7% / 34.3% / 33.6%), and the slowest group waits *less* than under greedy (p90 17 vs 20 days).
+- **Valid everywhere.** 0 invalid episodes across thousands of runs: the official subprocess protocol (18/18 on 101–103, 0.46 s per call) and the container.
+- **Low-noise yardstick.** Comparisons use exact *expected* MSMI from paired worlds. It was validated against realised outcomes on 360 episodes and is about 10× less noisy than realised scores.
+- **Honest ceiling.** A matcher that knew every true probability would gain only about +7% over greedy. We capture well over a third of that.
+- **Fair waits.** Served shares are flat across responsiveness (33.7% / 34.3% / 33.6%), and the slowest group waits *less* than under greedy (p90 17 vs 20 days).
 
 > All data and worlds are synthetic. None of these numbers describe real people.
+>
+> Realised MSMI scores (noisy at small episode counts) are reported in `FINDINGS.md` §12 and `results/final*.json` alongside expected values. On 240-episode confirmations, realised and expected differences are within one standard error of each other.
 
 ---
 
-## 🧠 How it decides, every simulated day
+## How it decides, every simulated day
 
 ```mermaid
 flowchart LR
@@ -68,7 +70,7 @@ The policy reads **only the request JSON**. It never imports `analysis/`, simula
 
 ---
 
-## 🔍 What we learned
+## What we learned
 
 | Question | Answer | Evidence |
 |---|---|---|
@@ -79,9 +81,11 @@ The policy reads **only the request JSON**. It never imports `analysis/`, simula
 | Do response penalties leave people waiting? (Q3b) | **No.** Shares stay flat, and the slowest group's p90 wait improves. | REPORT §6 |
 | Are the models calibrated? | Monotone with positive Brier skill. The fit model gains +1.7% skill in the shifted-weights family. | REPORT §5.4 |
 
+Known limitations — sparse geography, declined hard constraints, delayed feedback, and thin feasible graphs — are analysed in `REPORT.md` §7.
+
 ---
 
-## 🚀 Reproduce
+## Reproduce
 
 > Run from the repository root. The policy needs no installs; the analysis tools use `numpy`.
 
@@ -96,7 +100,11 @@ python evaluate.py --seeds 101,102,103 --variants all --output results/final.jso
 # 3 · The three supplied baselines on the same seeds and families
 python evaluate.py --baseline no_asks --seeds 101,102,103 --variants all --output results/final_no_asks.json
 python evaluate.py --baseline random  --seeds 101,102,103 --variants all --output results/final_random.json
+
+# Linux / macOS
 POLICY_VARIANT=greedy python evaluate.py --policy analysis/variant_policy.py --seeds 101,102,103 --variants all --output results/final_greedy.json
+# Windows (PowerShell)
+# $env:POLICY_VARIANT="greedy"; python evaluate.py --policy analysis/variant_policy.py --seeds 101,102,103 --variants all --output results/final_greedy.json
 
 # 4 · Container (assessment mode)
 docker build -t sequential-policy:submission .
@@ -106,7 +114,7 @@ python evaluate.py --image sequential-policy:submission --seeds 101 --variants a
 `--baseline greedy` (the evaluator's default) runs `DEFAULT_CONFIG`. The kit greedy baseline is reproduced through `analysis/variant_policy.py`, with actions identical to the kit's (`action_sha256` checked).
 
 <details>
-<summary><b>🔬 Analysis tools</b> (evaluation only; they read simulator truth and are never copied into the image)</summary>
+<summary><b>Analysis tools</b> (evaluation only; they read simulator truth and are never copied into the image)</summary>
 
 ```bash
 python analysis/compare.py   --a greedy --b full_person_learn --seeds 201-230     # paired expected-MSMI comparison
@@ -123,7 +131,7 @@ World variants for Q1 and Q2 (dense graphs, sparse + delayed, a switch on day 30
 
 ---
 
-## 🧰 Environment
+## Environment
 
 | | |
 |---|---|
@@ -134,18 +142,20 @@ World variants for Q1 and Q2 (dense graphs, sparse + delayed, a switch on day 30
 | **Analysis-only** | `numpy` (`analysis/expected.py`), `networkx` (`analysis/analysis.py`, one optional test) |
 | **Training / GPU** | None. No trained artefacts; every model is fitted online from the request |
 
-## 🎲 Declared seeds
+## Declared seeds
 
 | Purpose | Seeds |
 |---|---|
 | Development and all tuning (training seeds) | **201–260** |
-| Confirmation of `full` and its ablations (first use 16 Oct) | **301–340** |
-| Final confirmation of the Bayesian layer and the shipped default (first use 17 Oct) | **341–380** |
+| Confirmation of `full` and its ablations (first use) | **301–340** |
+| Final confirmation of the Bayesian layer and the shipped default (first use) | **341–380** |
 | Reproducing the published baseline numbers only | 101–103 |
 | **Inference random seed** | **None.** The policy is fully deterministic and uses no random numbers (the kit's `random` baseline seeds `random.Random(17 + day)`) |
 
+No seed group overlaps with another. Private assessment seeds are outside all of the above ranges.
+
 <details>
-<summary><b>🗂️ Repository layout</b></summary>
+<summary><b>Repository layout</b></summary>
 
 ```
 policy.py               entry point + safety shell, presets, DEFAULT_CONFIG
@@ -158,6 +168,9 @@ tests/test_policy.py    fuzz and validity tests for the shell and every preset
 analysis/               evaluation-only tools: expected MSMI, paired suites, worlds, calibration
 results/                machine-readable results (force-added; results/ is git-ignored by the kit)
 report/match.md         match-phase write-up (Siddharth)
+REPORT.md               technical report: approach, experiments, limitations, calibration
+FINDINGS.md             lab notebook: all numbered experiments and intermediate results
+CHANGELOG.md            kit release history
 docs/                   kit docs + our Round 1 proposal
 kit.py, evaluate.py …   the organisers' kit at commit a8e26b3, unchanged
 ```
@@ -166,7 +179,7 @@ kit.py, evaluate.py …   the organisers' kit at commit a8e26b3, unchanged
 
 ---
 
-## 👥 Team
+## Team
 
 | | Role |
 |---|---|
@@ -174,7 +187,7 @@ kit.py, evaluate.py …   the organisers' kit at commit a8e26b3, unchanged
 | **Siddharth Malkania** | Maximum-pairs matcher and quality weights, Q1 reservation study, Q3b waiting analysis |
 | **Rishi Mehrotra** | Question order and soft questions, Docker and container checks, Q3a |
 
-## 📜 Licences and attribution
+## Licences and attribution
 
 - Kit code and synthetic data: the organisers' terms in [LICENSE](LICENSE) and [DATA_LICENSE.md](DATA_LICENSE.md).
 - `misfits/blossom.py`: NetworkX, BSD-3-Clause (notice reproduced in the file).
