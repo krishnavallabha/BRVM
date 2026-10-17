@@ -255,6 +255,7 @@ no\_asks & 0.139 & 0.116 & 24.3 & 3.50 & 0.143 & 0 / 13 & 0 \\
 \item Our policies produce \emph{more} mutual acceptances and dates than greedy, but at this scale they lost some of the final second-meeting draws.
 \item In expectation, the shipped policy ties greedy on these three seeds. Three seeds cannot resolve effects of about $1\%$; the reserved-seed confirmations can.
 \end{itemize}
+Appendix~\ref{app:funnel} gives the full funnel (dates, \msmi{} counts, unserved members, missing feedback), and Appendix~\ref{app:failures} analyses the failure cases named in the organisers' report guide.
 
 \paragraph{Confirmation on reserved seeds.} Table~\ref{tab:confirm} and Figure~\ref{fig:families} give the evidence.
 \begin{itemize}
@@ -411,6 +412,7 @@ The broader lesson for sequential reciprocal matching is that a validated, low-v
 \item \textbf{The yardstick inherits the public simulator's structure.} Private worlds from a compatible engine may differ.
 \item \textbf{The priors are hand-set.} The hand-set fit prior and the $+10$ arrival bonus are heuristics tuned on development seeds.
 \item \textbf{The ranking is noisy.} At about $\pm0.04$ per team on 120 episodes, the realised-\msmi{} ranking cannot reliably separate competent policies whose expected scores differ by about $0.01$.
+\item \textbf{Failure cases} (sparse supply, withheld answers, delays, cold starts, shifts, competition for the same candidate) are analysed in Appendix~\ref{app:failures}. Appendix~\ref{app:checklist} maps every item of the organisers' report guide to this paper.
 \item \textbf{Product use needs more.} Any authorised deployment would need real-time constraint checks, priors re-estimated and recalibrated on consented data, fairness review across protected groups, and a human in the loop.
 \end{itemize}
 
@@ -423,5 +425,126 @@ The broader lesson for sequential reciprocal matching is that a validated, low-v
 \bibitem{gelman2013bayesian} A.~Gelman, J.~B.~Carlin, H.~S.~Stern, D.~B.~Dunson, A.~Vehtari, and D.~B.~Rubin. \emph{Bayesian Data Analysis}, 3rd ed. CRC Press, 2013.
 \bibitem{vaswani2017attention} A.~Vaswani, N.~Shazeer, N.~Parmar, J.~Uszkoreit, L.~Jones, A.~N.~Gomez, {\L}.~Kaiser, and I.~Polosukhin. Attention is all you need. In \emph{Advances in Neural Information Processing Systems}, 2017. (Title homage only.)
 \end{thebibliography}
+
+% ======================================================================
+\clearpage
+\appendix
+\section*{Appendices}
+\addcontentsline{toc}{section}{Appendices}
+\renewcommand{\thesubsection}{\Alph{subsection}}
+
+\subsection{Outcome funnel per policy}\label{app:funnel}
+
+Table~\ref{tab:funnel} gives the complete outcome funnel from the official evaluator (public seeds 101--103 $\times$ 6 families, 18 episodes per policy, all valid; \texttt{results/final*.json}). Each episode has 200 arrived members.
+
+\begin{itemize}
+\item \emph{Missing feedback} counts no-response events, to introductions and to second-meeting questions.
+\item \emph{Unserved} counts arrived members who never received an introduction, including the permanently blocked.
+\item Waits are days from arrival to first introduction, among served members.
+\end{itemize}
+
+\begin{table}[h]
+\centering\small
+\caption{Outcome funnel and service metrics per episode (means over 18 episodes). The last row gives the shipped policy's stage-to-stage conversion rates per introduction.}
+\label{tab:funnel}
+\setlength{\tabcolsep}{3.2pt}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lcccccccccc}
+\toprule
+Policy & Intros & Mutual & Dates & \msmi & \msmi/100 & Coverage & Unserved & Missing fb. & Wait med./p90 & Ask cost \\
+\midrule
+greedy & 79.8 & 11.00 & 8.61 & 0.78 & 0.389 & 0.372 & 125.7 & 45.5 & 4 / 16 & 207 \\
+random & 80.5 & 10.67 & 8.78 & 0.56 & 0.278 & 0.377 & 124.7 & 41.9 & 5 / 16 & 207 \\
+no\_asks & 24.3 & 3.50 & 2.67 & 0.28 & 0.139 & 0.143 & 171.4 & 13.3 & 0 / 13 & 0 \\
+\full{} & 78.5 & 11.94 & 9.22 & 0.56 & 0.278 & 0.375 & 125.1 & 41.8 & 4 / 16 & 220 \\
+\textbf{\ship} & 79.9 & 11.67 & 9.06 & 0.61 & 0.306 & \textbf{0.376} & 124.8 & 42.6 & 4 / 16 & 219 \\
+\midrule
+\multicolumn{11}{l}{\footnotesize Shipped, per introduction: mutual acceptance $14.6\%$ $\rightarrow$ date $11.3\%$ $\rightarrow$ \msmi{} $0.76\%$.} \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\textbf{Reading the funnel.}
+\begin{itemize}
+\item Clarification drives every stage: without questions there are $3.3\times$ fewer introductions, $3.4\times$ fewer dates, and coverage falls from $0.37$ to $0.14$.
+\item Our policies produce more mutual acceptances and dates than greedy (11.67--11.94 vs 11.00; 9.06--9.22 vs 8.61), because tie-breaks favour agreeing, responsive pairs.
+\item They also record fewer missing responses (42.6 vs 45.5).
+\item At this scale the final \msmi{} count rests on 10--14 events per policy. The realised score therefore differs from the expected-\msmi{} ranking (Table~\ref{tab:official}), and the reserved-seed confirmations in Section~\ref{sec:results} are the evidence.
+\item About 125 of 200 members are never introduced under every clarifying policy. That ceiling is set by declined hard fields and reciprocal incompatibility, not by allocation (Appendix~\ref{app:failures}).
+\end{itemize}
+
+\subsection{Failure cases}\label{app:failures}
+
+\paragraph{Sparse supply.}
+\begin{itemize}
+\item In the sparse-geography family, members accept only nearby zones among 12, which leaves about 22 introductions per episode and almost no alternatives.
+\item Every policy ties there: expected \msmi{} $0.116$--$0.117$, with the shipped policy at $-0.0006$ \ci{-0.0018}{+0.0006} vs greedy. Sparse and delayed conditions together behave the same way.
+\item Allocation cannot create supply; only geography can.
+\end{itemize}
+
+\paragraph{Withheld (declined) answers and incompatible candidates.}
+\begin{itemize}
+\item About $34\%$ of members decline at least one hard field and can never be introduced by any valid policy, which caps coverage at about $0.36$.
+\item Among never-served members, $53\%$ declined a hard field. Most of the rest have no reciprocally feasible partner available at the right time.
+\item Unknown is never treated as compatible, and the shell never asks a declined field again.
+\end{itemize}
+
+\paragraph{Delayed feedback.}
+\begin{itemize}
+\item Responses arrive 1--7 days after an introduction, non-responses only at the 7-day deadline, and second-meeting answers up to 5 days after a date.
+\item Counting open opportunities biased every response estimate upward (predicted $0.9$, observed $0.7$). The person model therefore counts only resolved opportunities (Section~\ref{sec:bayes}).
+\item In the delayed-dates family, dates occasionally miss the 30-day window ($\pi_{30}\approx0.978$) and mutual acceptances keep people busy for longer. The shipped policy is clearly positive there: $+0.0148$ \ci{+0.0046}{+0.0251} vs greedy.
+\end{itemize}
+
+\paragraph{Cold starts.}
+\begin{itemize}
+\item With more missing fields, 43\% of feasible pairs need \emph{both} members asked (Section~\ref{sec:questions}, Q3a), and the feasible graph has many tied edges.
+\item The partner-count order unlocks connectable members about 2 days sooner.
+\item The choice among equally large matchings measurably changes future availability (Section~\ref{sec:results}).
+\item The shipped policy's largest gain is here: $+0.0193$ \ci{+0.0062}{+0.0324}.
+\end{itemize}
+
+\paragraph{Shifted outcome weights.}
+\begin{itemize}
+\item Pace outweighs goal in this family, so the hand-set fit prior is wrong.
+\item The online fit model partly corrects it (calibration skill $+1.7\%$), and the shipped policy stays positive ($+0.0073$ \ci{-0.0044}{+0.0189}), without detecting the family.
+\end{itemize}
+
+\paragraph{Competition for the same candidate.}
+\begin{itemize}
+\item When several people's best option is the same member, independent pair ranking double-books or wastes them.
+\item Our allocation solves one maximum-cardinality matching per day, so nobody appears in two pairs. Among equally large matchings, the tie-break gives the contested member to the partner with the best observed fit and responsiveness.
+\item Unit-weight matching, which ignores who is contested by whom, loses the whole gain ($-0.0082$, Figure~\ref{fig:ablation}).
+\item Holding a contested member back for a better future partner never helped (Q1, Figure~\ref{fig:q1}).
+\end{itemize}
+
+\paragraph{Low event counts.}
+\begin{itemize}
+\item About $0.7\%$ of introductions become an \msmi, so realised scores are dominated by chance: per-episode SD $0.27$--$0.41$, and about $\pm0.04$ per team on 120 episodes.
+\item Every claim in this paper therefore rests on paired expected-\msmi{} differences with 95\% CIs over 30--60 seeds.
+\end{itemize}
+
+\clearpage
+\subsection{Map to the organisers' report guide}\label{app:checklist}
+
+\begin{center}\small
+\captionof{table}{Where each item of \texttt{examples/REPORT\_GUIDE.md} is covered. \texttt{REPORT.md} follows the guide's eight sections in order and repeats every number.}
+\label{tab:checklist}
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+& Guide item & Covered in \\
+\midrule
+1 & Hypothesis and objective; reciprocal eligibility, allocation, waiting, clarification; probability targets & Sec.~\ref{sec:setting}, Sec.~\ref{sec:method}, Sec.~\ref{sec:bayes}, Q1 in Sec.~\ref{sec:questions} \\
+2 & Observations per decision; missingness, declined answers, delayed feedback, selective labels, leakage & Sec.~\ref{sec:setting}, Sec.~\ref{sec:bayes}, Sec.~\ref{sec:protocol}, App.~\ref{app:failures} \\
+3 & Training, inference assets, randomness, dependencies, external data, models, coding tools & Sec.~\ref{sec:method}, Sec.~\ref{sec:limits} \\
+4 & All three baselines on identical seeds and all six families; JSON results and commands & Tables~\ref{tab:official}--\ref{tab:confirm}, Fig.~\ref{fig:families}, App.~\ref{app:funnel}, repository \\
+5 & Funnel, \msmi/100, coverage, waits, unserved, clarification cost, missing feedback, seed variation & App.~\ref{app:funnel}, Tables~\ref{tab:official}--\ref{tab:confirm}, Q3b in Sec.~\ref{sec:questions} \\
+6 & A causal design claim tested by a focused ablation & Fig.~\ref{fig:ablation}, Sec.~\ref{sec:results} \\
+7 & Sparse supply, incompatible candidates, withheld constraints, cold starts, delays, shifts; uncertainty and low counts & App.~\ref{app:failures}, Sec.~\ref{sec:yardstick} \\
+8 & What synthetic outcomes cannot establish; adapter and validation for product use & Sec.~\ref{sec:limits} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
 
 \end{document}
